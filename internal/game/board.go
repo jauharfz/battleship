@@ -1,17 +1,17 @@
 package game
 
-type CellState string
+type CellState int
 
 const (
-	CellEmpty CellState = ""
-	CellShip  CellState = "Ship"
-	CellHit   CellState = "Hit"
-	CellMiss  CellState = "Miss"
+	CellEmpty CellState = iota
+	CellShip
+	CellHit
+	CellMiss
 )
 
 type Cell struct {
 	State     CellState
-	ShipIndex int //using 1-based for ShipIndex
+	ShipIndex int
 }
 
 type Direction int
@@ -21,5 +21,4 @@ const (
 	Vertical
 )
 
-const maxPlacement = 5
 const GridSize = 10
