@@ -47,16 +47,21 @@ func NewShip(name string, typ ShipType, direction Direction, x, y int) (*Ship, e
 	}
 	size := shipSizes[typ]
 
-	if direction > 1 {
-		return nil, fmt.Errorf("invalid ship direction, please input valid ship direction")
+	if x < 0 || y < 0 || x >= GridSize || y >= GridSize {
+		return nil, fmt.Errorf("coordinates out of the bounds")
 	}
 
-	if x < 0 || y < 0 {
-		return nil, fmt.Errorf("coordinates cannot be negative")
-	}
-
-	if (x+size-1 >= GridSize && direction == Horizontal) || (y+size-1 >= GridSize && direction == Vertical) {
-		return nil, fmt.Errorf("invalid ship position, out of bounds")
+	switch direction {
+	case Horizontal:
+		if x+size > GridSize {
+			return nil, fmt.Errorf("horizontal coordinates out of the bounds")
+		}
+	case Vertical:
+		if y+size > GridSize {
+			return nil, fmt.Errorf("vertical coordinates out of the bounds")
+		}
+	default:
+		return nil, fmt.Errorf("invalid direction")
 	}
 
 	return &Ship{

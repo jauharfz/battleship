@@ -13,13 +13,31 @@ const (
 	StateAborted
 )
 
+type ErrorCode string
+
+const (
+	AlreadyShot      ErrorCode = "ALREADY_SHOT"
+	NotYourTurn      ErrorCode = "NOT_YOUR_TURN"
+	InvalidPlacement ErrorCode = "INVALID_PLACEMENT"
+	InvalidPhase     ErrorCode = "INVALID_PHASE"
+	UnknownError     ErrorCode = "UNKNOWN_ERROR"
+)
+
+type EndReason string
+
+const (
+	AllEnemyShipsDestroyed      EndReason = "ALL_ENEMY_SHIP_DESTROYED"
+	OpponentDisconnectedTimeout EndReason = "OPPONENT_DISCONNECTED_TIMEOUT"
+	OpponentSurrendered         EndReason = "OPPONENT_SURRENDERED"
+)
+
 type FireResult struct {
 	FiredBy       string
 	Target        string
-	X             int
 	Y             int
+	X             int
 	Hit           bool
-	ShipDestroyed *ShipType // ptr bcs default null
+	ShipDestroyed string
 	NextTurn      string
 }
 
@@ -28,7 +46,7 @@ type Match struct {
 	players   [maxPlayers]*Player
 	turn      int
 	WinnerID  string
-	EndReason string
+	EndReason EndReason
 }
 
 func NewMatch(p1ID, p2ID string) *Match {
@@ -54,7 +72,7 @@ func NewMatch(p1ID, p2ID string) *Match {
 // check state, p1id -> ready, p2id -> change state
 func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) error {
 	if m.State != StatePreparation {
-		return fmt.Errorf("invalid state")
+		return fmt.Errorf(string(InvalidPhase))
 	}
 	idx, err := m.getPlayerIndex(playerID)
 	if err != nil {
@@ -71,16 +89,70 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 	return nil
 }
 
+// fix: validate the turn , if ship destroyecd,
+// copy by value,validate x&y
 func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
-	return FireResult{}, nil
+	if m.State != StateInBattle {
+		return FireResult{}, fmt.Errorf(string(InvalidPhase))
+	}
+
+	if m.players[m.turn].PlayerID != playerID {
+		return FireResult{}, fmt.Errorf(string(NotYourTurn))
+	}
+
+	if x >= GridSize || x < 0 || y >= GridSize || y < 0 {
+		return FireResult{}, fmt.Errorf(string(InvalidPlacement))
+	}
+
+	var nextTurn int
+	if m.turn == 0 {
+		nextTurn = 1
+	} else {
+		nextTurn = 0
+	}
+	opponent := m.players[nextTurn]
+	opponentGrid := &opponent.Grid[y][x]
+	var err error
+	var hit bool
+	var destroyedShipName string
+	switch opponentGrid.State {
+	case CellEmpty:
+		opponentGrid.State = CellMiss
+	case CellShip:
+		opponentShip := opponent.Ships[opponentGrid.ShipIndex]
+		opponentGrid.State = CellHit
+		hit = true
+		opponentShip.Health--
+		if opponentShip.Health == 0 {
+			destroyedShipName = opponent.Ships[opponentGrid.ShipIndex].Name
+		}
+		if m.isAllShipDestroyed(nextTurn) {
+			m.State = StateFinished
+			m.WinnerID = m.players[m.turn].PlayerID
+			m.EndReason = AllEnemyShipsDestroyed
+		}
+		nextTurn = m.turn
+	case CellHit:
+		err = fmt.Errorf(string(AlreadyShot))
+	case CellMiss:
+		err = fmt.Errorf(string(AlreadyShot))
+	default:
+		err = fmt.Errorf(string(UnknownError))
+	}
+	if err != nil {
+		return FireResult{}, err
+	}
+	m.turn = nextTurn
+
+	return FireResult{playerID, opponent.PlayerID, y, x, hit, destroyedShipName, m.players[nextTurn].PlayerID}, nil
 }
 
 func (m *Match) Surrender(playerID string) error {
-	return nil
+	return m.endMatchPrematurely(playerID, OpponentSurrendered)
 }
 
 func (m *Match) Forfeit(playerID string) error {
-	return nil
+	return m.endMatchPrematurely(playerID, OpponentDisconnectedTimeout)
 }
 
 // getPlayerIndex
@@ -91,5 +163,41 @@ func (m *Match) getPlayerIndex(playerID string) (int, error) {
 	if m.players[1].PlayerID == playerID {
 		return 1, nil
 	}
-	return -1, fmt.Errorf("invalid player id %s", playerID)
+	return -1, fmt.Errorf(string(UnknownError))
+}
+
+// isAllShipDestroyed
+func (m *Match) isAllShipDestroyed(playerIdx int) bool {
+	for _, ship := range m.players[playerIdx].Ships {
+		if ship.Health != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *Match) endMatchPrematurely(playerID string, endReason EndReason) error {
+	{
+		if m.State != StateInBattle {
+			return fmt.Errorf(string(InvalidPhase))
+		}
+
+		idx, err := m.getPlayerIndex(playerID)
+		if err != nil {
+			return err
+		}
+
+		var winnerIdx int
+		if idx == 0 {
+			winnerIdx = 1
+		} else {
+			winnerIdx = 0
+		}
+
+		m.State = StateFinished
+		m.WinnerID = m.players[winnerIdx].PlayerID
+		m.EndReason = endReason
+
+		return nil
+	}
 }

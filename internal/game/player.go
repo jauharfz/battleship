@@ -34,7 +34,7 @@ func (p *Player) validateAllShipPosition(ships []ShipPlacement) error {
 		tempShipType[shipPlacement.Type] = struct{}{}
 		ship, err := NewShip(shipPlacement.Name, shipPlacement.Type, shipPlacement.Direction, shipPlacement.X, shipPlacement.Y)
 		if err != nil {
-			return fmt.Errorf("invalid ship format")
+			return fmt.Errorf("failed to to place ship %v", err)
 		}
 		for idx := 0; idx < shipSizes[ship.Type]; idx++ {
 			var currX, currY int
