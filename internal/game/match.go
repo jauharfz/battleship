@@ -1,6 +1,8 @@
 package game
 
-import "fmt"
+import (
+	"errors"
+)
 
 const maxPlayers = 2
 
@@ -13,14 +15,12 @@ const (
 	StateAborted
 )
 
-type ErrorCode string
-
-const (
-	AlreadyShot      ErrorCode = "ALREADY_SHOT"
-	NotYourTurn      ErrorCode = "NOT_YOUR_TURN"
-	InvalidPlacement ErrorCode = "INVALID_PLACEMENT"
-	InvalidPhase     ErrorCode = "INVALID_PHASE"
-	UnknownError     ErrorCode = "UNKNOWN_ERROR"
+var (
+	ErrAlreadyShot      = errors.New("ALREADY_SHOT")
+	ErrNotYourTurn      = errors.New("NOT_YOUR_TURN")
+	ErrInvalidPlacement = errors.New("INVALID_PLACEMENT")
+	ErrInvalidPhase     = errors.New("INVALID_PHASE")
+	ErrUnknownError     = errors.New("UNKNOWN_ERROR")
 )
 
 type EndReason string
@@ -37,7 +37,7 @@ type FireResult struct {
 	Y             int
 	X             int
 	Hit           bool
-	ShipDestroyed string
+	ShipDestroyed ShipName
 	NextTurn      string
 }
 
@@ -72,7 +72,7 @@ func NewMatch(p1ID, p2ID string) *Match {
 // check state, p1id -> ready, p2id -> change state
 func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) error {
 	if m.State != StatePreparation {
-		return fmt.Errorf(string(InvalidPhase))
+		return ErrInvalidPhase
 	}
 	idx, err := m.getPlayerIndex(playerID)
 	if err != nil {
@@ -93,15 +93,15 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 // copy by value,validate x&y
 func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 	if m.State != StateInBattle {
-		return FireResult{}, fmt.Errorf(string(InvalidPhase))
+		return FireResult{}, ErrInvalidPhase
 	}
 
 	if m.players[m.turn].PlayerID != playerID {
-		return FireResult{}, fmt.Errorf(string(NotYourTurn))
+		return FireResult{}, ErrNotYourTurn
 	}
 
 	if x >= GridSize || x < 0 || y >= GridSize || y < 0 {
-		return FireResult{}, fmt.Errorf(string(InvalidPlacement))
+		return FireResult{}, ErrInvalidPlacement
 	}
 
 	var nextTurn int
@@ -114,7 +114,7 @@ func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 	opponentGrid := &opponent.Grid[y][x]
 	var err error
 	var hit bool
-	var destroyedShipName string
+	var destroyedShipName ShipName
 	switch opponentGrid.State {
 	case CellEmpty:
 		opponentGrid.State = CellMiss
@@ -133,11 +133,11 @@ func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 		}
 		nextTurn = m.turn
 	case CellHit:
-		err = fmt.Errorf(string(AlreadyShot))
+		err = ErrAlreadyShot
 	case CellMiss:
-		err = fmt.Errorf(string(AlreadyShot))
+		err = ErrAlreadyShot
 	default:
-		err = fmt.Errorf(string(UnknownError))
+		err = ErrUnknownError
 	}
 	if err != nil {
 		return FireResult{}, err
@@ -163,7 +163,7 @@ func (m *Match) getPlayerIndex(playerID string) (int, error) {
 	if m.players[1].PlayerID == playerID {
 		return 1, nil
 	}
-	return -1, fmt.Errorf(string(UnknownError))
+	return -1, ErrUnknownError
 }
 
 // isAllShipDestroyed
@@ -179,7 +179,7 @@ func (m *Match) isAllShipDestroyed(playerIdx int) bool {
 func (m *Match) endMatchPrematurely(playerID string, endReason EndReason) error {
 	{
 		if m.State != StateInBattle {
-			return fmt.Errorf(string(InvalidPhase))
+			return ErrInvalidPhase
 		}
 
 		idx, err := m.getPlayerIndex(playerID)

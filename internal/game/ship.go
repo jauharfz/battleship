@@ -22,8 +22,18 @@ var shipSizes = map[ShipType]int{
 	Destroyer:       2,
 }
 
+type ShipName string
+
+const (
+	KMSPrinzEugen ShipName = "KMS_Prinz_Eugen"
+	IJNTaihou     ShipName = "IJN_Taihou"
+	HMSBelfast    ShipName = "HMS_Belfast"
+	USSLaffey     ShipName = "USS_Laffey"
+	KMSBismarck   ShipName = "KMS_Bismarck"
+)
+
 type Ship struct {
-	Name      string
+	Name      ShipName
 	Type      ShipType
 	Size      int
 	X         int
@@ -33,7 +43,7 @@ type Ship struct {
 }
 
 type ShipPlacement struct {
-	Name      string
+	Name      ShipName
 	Type      ShipType
 	X         int
 	Y         int
@@ -41,30 +51,39 @@ type ShipPlacement struct {
 }
 
 // TODO: Bound Checking X & Y
-func NewShip(name string, typ ShipType, direction Direction, x, y int) (*Ship, error) {
-	if _, ok := shipSizes[typ]; !ok {
+func NewShip(name ShipName, typ ShipType, direction Direction, x, y int) (*Ship, error) {
+	size, ok := shipSizes[typ]
+	if !ok {
 		return nil, fmt.Errorf("unknown ship type, please input valid ship type")
 	}
-	size := shipSizes[typ]
 
-	if x < 0 || y < 0 || x >= GridSize || y >= GridSize {
-		return nil, fmt.Errorf("coordinates out of the bounds")
+	ship := &Ship{
+		Name: name, Type: typ, Direction: direction, X: x, Y: y, Size: size, Health: size,
+	}
+	err := ship.validate(size)
+	if err != nil {
+		return nil, err
 	}
 
-	switch direction {
+	return ship, nil
+}
+
+func (s *Ship) validate(size int) error {
+	if s.X < 0 || s.Y < 0 || s.X >= GridSize || s.Y >= GridSize {
+		return fmt.Errorf("coordinates out of the bounds")
+	}
+
+	switch s.Direction {
 	case Horizontal:
-		if x+size > GridSize {
-			return nil, fmt.Errorf("horizontal coordinates out of the bounds")
+		if s.X+size > GridSize {
+			return fmt.Errorf("horizontal coordinates out of the bounds")
 		}
 	case Vertical:
-		if y+size > GridSize {
-			return nil, fmt.Errorf("vertical coordinates out of the bounds")
+		if s.Y+size > GridSize {
+			return fmt.Errorf("vertical coordinates out of the bounds")
 		}
 	default:
-		return nil, fmt.Errorf("invalid direction")
+		return fmt.Errorf("invalid direction")
 	}
-
-	return &Ship{
-		Name: name, Type: typ, Direction: direction, X: x, Y: y, Size: size, Health: size,
-	}, nil
+	return nil
 }
