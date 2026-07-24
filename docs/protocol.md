@@ -145,7 +145,7 @@ The active player fires at a coordinate on the opponent's grid.
 
 The server returns the result of the shot.
 
-*ship_destroyed only return type of the ship if the ship completely destroyed, if its not->null*
+*ship_destroyed only return name or type of the ship if the ship completely destroyed, if its not->null*
 
     Direction: Server to Client (S2C)
     Type: EVT_FIRE_RESULT
@@ -194,7 +194,7 @@ The server sends an error event if the client performs an invalid move (e.g., sh
         "message": "you've already shot the coordinates (4,5) before."
       }
     }
-*Error Code List: "ALREADY_SHOT", "NOT_YOUR_TURN", "INVALID_PLACEMENT", "INVALID_PHASE"*
+*Error Code List: "ALREADY_SHOT", "NOT_YOUR_TURN", "INVALID_PLACEMENT", "INVALID_PHASE", "UNKNOWN_ERROR"*
 
 ### 5. Reconnection Sync
 
