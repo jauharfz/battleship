@@ -1,14 +1,14 @@
-# BATTLESHIP PROJECT
+## Battleship Proj
 
-## FSM Design
+### Initial FSM Design
 ![inilah my fsm](docs/FSM.png)
 
 
-## Message Protocol
+### Message Protocol
 [Message Protocol](docs/protocol.md)
 
 
-## Resources
+### Resources
 - [FSM - Fundamental](https://gameprogrammingpatterns.com/state.html)
 - [Lifecycle Events](https://docs.colyseus.io/room)
 - [Handling Incomplate Games](https://docs.skillz.com/docs/aborts/)
