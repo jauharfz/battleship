@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "esnext",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"],
+  "display": "Recommended",
+  "$schema": "https://www.schemastore.org/tsconfig"
+}
