@@ -13,10 +13,14 @@ WS.onopen = ()=>{
 };
 
 WS.onmessage = ((event)=>{
-console.log(event);
-	let li = document.createElement("li");
-	li.textContent = event.data;
-	LOG?.append(li);
+	try{
+		const li = document.createElement("li");
+		const msg:WireMessage = JSON.parse(event.data);
+		li.textContent = HandleMessage(msg);
+		LOG?.append(li);
+	}catch(err){
+		console.warn("Received non-JSON frame:",event.data,err)
+	}
 })
 
 WS.onerror = (event)=>{
@@ -27,7 +31,6 @@ WS.onerror = (event)=>{
 WS.onclose = (event)=>{
 	console.log(`SOCKET_CLOSE: CODE=${event.code}, REASON=${event.reason}`);
 	STATUS!.textContent = "Disconnected"; 
-	WS.close(event.code,event.reason);
 }
 
 SEND_BUTTON!.addEventListener("click",()=>{
@@ -36,4 +39,23 @@ SEND_BUTTON!.addEventListener("click",()=>{
 	}
 	WS.send(MESSAGE_INPUT.value);
 	MESSAGE_INPUT.textContent = "";
+	MESSAGE_INPUT.value = "";
 })
+
+interface WireMessage {
+	type: string;
+	payload?: any;
+}
+
+function HandleMessage(msg:WireMessage):string{
+	switch (msg.type){
+		case "EVENT_BATTLE_START": 
+			return "Opponent found! Battle Start";
+		case "EVENT_GAME_OVER":
+			return "Opponent disconnected. Game Over";
+		case "EVENT_CHAT":
+			return `Message: ${msg.payload.message}`
+		default:
+			return `Incoming message: ${msg}`;
+	}
+}

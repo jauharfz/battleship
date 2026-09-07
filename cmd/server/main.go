@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jauharfz/battleship/internal/lobby"
 	"github.com/jauharfz/battleship/internal/server"
 )
 
@@ -22,7 +23,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	handler := server.NewServer()
+	matchmaker := lobby.Matchmaker{}
+	handler := server.NewServer(&matchmaker)
 	srv := http.Server{
 		Addr:    addr,
 		Handler: server.Routes(handler),

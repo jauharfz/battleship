@@ -1,9 +1,15 @@
 package server
 
+import (
+	"github.com/jauharfz/battleship/internal/lobby"
+)
+
 type Server struct {
-	//  game? room? lobby? protocol? auth? config?
+	Matchmaker *lobby.Matchmaker
 }
 
-func NewServer() *Server {
-	return &Server{}
+func NewServer(matchmaker *lobby.Matchmaker) *Server {
+	return &Server{
+		Matchmaker: matchmaker,
+	}
 }

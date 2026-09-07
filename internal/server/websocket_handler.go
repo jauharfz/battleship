@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/jauharfz/battleship/internal/room"
 )
 
 // NOTE: change if its Cross-Origin in prod
@@ -21,22 +22,18 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to upgrade to websocker", "error", err)
 		return
 	}
-	defer conn.Close()
+	client := room.NewClient(conn)
+	defer func() {
+		if client.Room == nil {
+			s.Matchmaker.Dequeue()
+		}
+		conn.Close()
+	}()
 
 	slog.Info("client connected", "remote_addr", conn.RemoteAddr())
 	defer slog.Info("client disconnected", "remote_addr", conn.RemoteAddr())
 
-	for {
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				slog.Error("failed to reading to a buffer", "error", err)
-			}
-			break
-		}
-		if err := conn.WriteMessage(messageType, p); err != nil {
-			slog.Error("failed to writing the message", "error", err)
-			break
-		}
-	}
+	go client.WritePump()
+	s.Matchmaker.Enqueue(client)
+	client.ReadPump()
 }

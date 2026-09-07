@@ -23,6 +23,17 @@ var (
 	ErrUnknownError     = errors.New("UNKNOWN_ERROR")
 )
 
+type Event string
+
+const (
+	EvtPlaceShipsResult Event = "EVENT_PLACE_SHIPMENT_RESULT"
+	EvtOpponentReady    Event = "EVENT_OPPONENT_READY"
+	EvtBattleStart      Event = "EVENT_BATTLE_START"
+	EvtFireResult       Event = "EVENT_FIRE_RESULT"
+	EvtError            Event = "EVENT_ERROR"
+	EvtGameOver         Event = "EVENT_GAME_OVER"
+)
+
 type EndReason string
 
 const (

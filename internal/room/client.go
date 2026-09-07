@@ -1,0 +1,58 @@
+package room
+
+import (
+	"log/slog"
+	"uuid"
+
+	"github.com/gorilla/websocket"
+)
+
+type Client struct {
+	ID   string
+	Conn *websocket.Conn
+	Send chan []byte
+	Room *Room
+}
+
+func NewClient(conn *websocket.Conn) *Client {
+	return &Client{
+		ID:   uuid.New().String(),
+		Conn: conn,
+		Send: make(chan []byte, 256),
+	}
+}
+
+func (c *Client) ReadPump() {
+	defer func() {
+		if c.Room != nil {
+			c.Room.Unregister <- c
+		} else {
+			close(c.Send)
+		}
+		c.Conn.Close()
+	}()
+	for {
+		_, p, err := c.Conn.ReadMessage()
+		if err != nil {
+			slog.Error("failed to read message from websocket connection", "error", err)
+			break
+		}
+
+		if c.Room != nil {
+			c.Room.Ingress <- Message{c, string(p)}
+		}
+	}
+}
+
+func (c *Client) WritePump() {
+	defer func() {
+		c.Conn.Close()
+	}()
+	for msg := range c.Send {
+		err := c.Conn.WriteMessage(websocket.TextMessage, msg)
+		if err != nil {
+			slog.Error("failed to write message to websocket connection", "error", err)
+			break
+		}
+	}
+}

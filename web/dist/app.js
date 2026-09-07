@@ -11,10 +11,15 @@ WS.onopen = () => {
     STATUS.textContent = "Connected";
 };
 WS.onmessage = ((event) => {
-    console.log(event);
-    let li = document.createElement("li");
-    li.textContent = event.data;
-    LOG === null || LOG === void 0 ? void 0 : LOG.append(li);
+    try {
+        const li = document.createElement("li");
+        const msg = JSON.parse(event.data);
+        li.textContent = HandleMessage(msg);
+        LOG === null || LOG === void 0 ? void 0 : LOG.append(li);
+    }
+    catch (err) {
+        console.warn("Received non-JSON frame:", event.data, err);
+    }
 });
 WS.onerror = (event) => {
     console.error(`SOCKET_ERROR: ${event}`);
@@ -23,7 +28,6 @@ WS.onerror = (event) => {
 WS.onclose = (event) => {
     console.log(`SOCKET_CLOSE: CODE=${event.code}, REASON=${event.reason}`);
     STATUS.textContent = "Disconnected";
-    WS.close(event.code, event.reason);
 };
 SEND_BUTTON.addEventListener("click", () => {
     if (WS.readyState != WebSocket.OPEN) {
@@ -31,4 +35,17 @@ SEND_BUTTON.addEventListener("click", () => {
     }
     WS.send(MESSAGE_INPUT.value);
     MESSAGE_INPUT.textContent = "";
+    MESSAGE_INPUT.value = "";
 });
+function HandleMessage(msg) {
+    switch (msg.type) {
+        case "EVENT_BATTLE_START":
+            return "Opponent found! Battle Start";
+        case "EVENT_GAME_OVER":
+            return "Opponent disconnected. Game Over";
+        case "EVENT_CHAT":
+            return `Message: ${msg.payload.message}`;
+        default:
+            return `Incoming message: ${msg}`;
+    }
+}
