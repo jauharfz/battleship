@@ -42,17 +42,25 @@ The client checks periodically whether the opponent has been found.
 
 ## Battle-Phase w/ WebSocket Protocol
 
-Once the WebSocket connection is established using the `ws_url` and `ws_token` from the matchmaking status, communication is handled via Query Parameter at Handshake usign One-Time Token .
+Once the WebSocket connection is established using the `ws_url` and `ws_token` from the matchmaking status, communication is handled via Query Parameter at Handshake using One-Time Token.
 
-### 1. Place Ships (Setup Phase)
+> **Note on Message Envelope**: All WebSocket messages (Client-to-Server and Server-to-Client) follow the standard envelope format:
+> ```json
+> {
+>   "type": "<COMMAND_OR_EVENT_NAME>",
+>   "data": { ... }
+> }
+> ```
+
+### 1. Place Ships & Ready State (Setup Phase)
 
 *Note: server-side must validate accepted ship type and max ship for each player*
 
-*Accepted Ship Type: {"heavy_cruiser",3}, {"aircraft_carrier",5}, {"light_cruiser",3}, {"destroyer",2}, {"battleship",4}*
+*Accepted Ship Type: `{"heavy_cruiser", 3}`, `{"aircraft_carrier", 5}`, `{"light_cruiser", 3}`, `{"destroyer", 2}`, `{"battleship", 4}`*
 
 *Max Placement: 5*
 
-*Grid Boundaries: using 10x10 grid w/ 0-indexed *
+*Grid Boundaries: using 10x10 grid w/ 0-indexed*
 
 The player submits their ship placements to the game server.
 
@@ -63,65 +71,80 @@ The player submits their ship placements to the game server.
 
     {
       "type": "CMD_PLACE_SHIPS",
-      "payload": {
+      "data": {
         "ships": [
           {
             "name": "IJN_Taihou",
             "type": "aircraft_carrier",
             "x": 1,
             "y": 3,
-            "direction": "horizontal"
+            "direction": 0
           },
-          {
+          { 
             "name": "KMS_Prinz_Eugen",
             "type": "heavy_cruiser",
             "x": 3,
             "y": 1,
-            "direction": "vertical"
+            "direction": 1
           }
         ]
       }
     }
 
-The server responds indicating whether the placement is valid.
+The server responds to the sender indicating whether the placement is valid.
 
     Direction: Server to Client (S2C)
-    Type: EVT_PLACE_SHIPS_RESULT
+    Type: EVENT_PLACE_SHIPMENT_RESULT
 
     JSON Payload:
 
     {
-      "type": "EVT_PLACE_SHIPS_RESULT",
-      "payload": {
+      "type": "EVENT_PLACE_SHIPMENT_RESULT",
+      "data": {
         "is_valid": true,
-        "reason": ""
+        "reason": "its true ofc"
       }
     }
 
-The server notifies the other player when their opponent has successfully placed their ships.
+The server notifies players (broadcast to both) when a player's ready state changes (e.g. after placing ships or canceling ready).
 
     Direction: Server to Client (S2C)
-    Type: EVT_OPPONENT_READY
+    Type: EVENT_PLAYER_READY
 
     JSON Payload:
 
     {
-      "type": "EVT_OPPONENT_READY",
-      "payload": {}
+      "type": "EVENT_PLAYER_READY",
+      "data": {
+        "player_id": "666",
+        "is_player_ready": true
+      }
+    }
+
+A player can cancel their ready status during the setup phase:
+
+    Direction: Client to Server (C2S)
+    Type: CMD_CANCEL_READY
+
+    JSON Payload:
+
+    {
+      "type": "CMD_CANCEL_READY",
+      "data": {}
     }
 
 ### 2. Battle Start
 
-The server notifies both players that the setup phase is complete if the both player is ready, the game has started, and indicates who takes the first turn.
+The server notifies both players that the setup phase is complete (both players ready), the battle has started, and indicates who takes the first turn.
 
     Direction: Server to Client (S2C)
-    Type: EVT_BATTLE_START
+    Type: EVENT_BATTLE_START
 
     JSON Payload:
 
     {
-      "type": "EVT_BATTLE_START",
-      "payload": {
+      "type": "EVENT_BATTLE_START",
+      "data": {
         "first_turn": "666"
       }
     }
@@ -137,35 +160,35 @@ The active player fires at a coordinate on the opponent's grid.
 
     {
       "type": "CMD_FIRE",
-      "payload": {
+      "data": {
         "x": 4,
         "y": 5
       }
     }
 
-The server returns the result of the shot.
+The server broadcasts the result of the shot to both players.
 
-*ship_destroyed only return name or type of the ship if the ship completely destroyed, if its not->null*
+*ship_destroyed only returns the name of the ship if the ship was completely destroyed, otherwise empty/null*
 
     Direction: Server to Client (S2C)
-    Type: EVT_FIRE_RESULT
+    Type: EVENT_FIRE_RESULT
 
     JSON Payload:
 
     {
-      "type": "EVT_FIRE_RESULT",
-      "payload": {
+      "type": "EVENT_FIRE_RESULT",
+      "data": {
         "fired_by": "666",
         "target": "777",
         "x": 4,
         "y": 5,
         "hit": true,
-        "ship_destroyed": null,
+        "ship_destroyed": "",
         "next_turn": "666"
       }
     }
 
-One of the active player surrend in the middle of battle
+One of the active players surrenders in the middle of battle:
 
     Direction: Client to Server (C2S)
     Type: CMD_SURRENDER
@@ -174,22 +197,21 @@ One of the active player surrend in the middle of battle
 
     {
       "type": "CMD_SURRENDER",
-      "payload": {
-      }
+      "data": {}
     }
 
 ### 4. Error Handling
 
-The server sends an error event if the client performs an invalid move (e.g., shooting the same coordinates twice).
+The server sends an error event if the client performs an invalid move (e.g., shooting the same coordinates twice, not your turn).
 
     Direction: Server to Client (S2C)
-    Type: EVT_ERROR
+    Type: EVENT_ERROR
 
     JSON Payload:
 
     {
-      "type": "EVT_ERROR",
-      "payload": {
+      "type": "EVENT_ERROR",
+      "data": {
         "code": "ALREADY_SHOT",
         "message": "you've already shot the coordinates (4,5) before."
       }
@@ -203,20 +225,20 @@ The server sends an error event if the client performs an invalid move (e.g., sh
 The server sends the current state of the game to sync the client upon a successful reconnection.
 
     Direction: Server to Client (S2C)
-    Type: EVT_RECONNECT_SYNC
+    Type: EVENT_RECONNECT_SYNC
 
     JSON Payload:
 
     {
-      "type": "EVT_RECONNECT_SYNC",
-      "payload": {
+      "type": "EVENT_RECONNECT_SYNC",
+      "data": {
         "your_ships": [
           {
             "name": "KMS_Prinz_Eugen",
             "type": "heavy_cruiser",
             "x": 3,
             "y": 1,
-            "direction": "vertical"
+            "direction": 1
           }
         ],
         "your_shots_history": [
@@ -247,18 +269,18 @@ The server sends the current state of the game to sync the client upon a success
 The server notifies both players that the game has ended.
 
     Direction: Server to Client (S2C)
-    Type: EVT_GAME_OVER
+    Type: EVENT_GAME_OVER
 
     JSON Payload:
 
     {
-      "type": "EVT_GAME_OVER",
-      "payload": {
+      "type": "EVENT_GAME_OVER",
+      "data": {
         "status": "finished",
         "winner_id": "666",
-        "reason": "all_enemy_ships_destroyed"
+        "reason": "ALL_ENEMY_SHIP_DESTROYED"
       }
     }
 
     * Possible values for "status": "finished", "aborted"
-    * Possible values for "reason": "all_enemy_ships_destroyed", "opponent_disconnected_timeout", "opponent_surrendered"
+    * Possible values for "reason": "ALL_ENEMY_SHIP_DESTROYED", "OPPONENT_DISCONNECTED_TIMEOUT", "OPPONENT_SURRENDERED"
