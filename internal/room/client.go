@@ -1,6 +1,7 @@
 package room
 
 import (
+	"encoding/json"
 	"log/slog"
 	"uuid"
 
@@ -34,12 +35,17 @@ func (c *Client) ReadPump() {
 	for {
 		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
-			slog.Error("failed to read message from websocket connection", "error", err)
+			slog.Error("failed to read message from message reader", "error", err)
 			break
 		}
 
 		if c.Room != nil {
-			c.Room.Ingress <- Message{c, string(p)}
+			var payload InboundPayload
+			err = json.Unmarshal(p, &payload)
+			if err != nil {
+				slog.Error("failed to unmarshal byte from message reader", "error", err)
+			}
+			c.Room.Ingress <- Message{c, payload}
 		}
 	}
 }

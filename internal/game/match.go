@@ -23,17 +23,6 @@ var (
 	ErrUnknownError     = errors.New("UNKNOWN_ERROR")
 )
 
-type Event string
-
-const (
-	EvtPlaceShipsResult Event = "EVENT_PLACE_SHIPMENT_RESULT"
-	EvtOpponentReady    Event = "EVENT_OPPONENT_READY"
-	EvtBattleStart      Event = "EVENT_BATTLE_START"
-	EvtFireResult       Event = "EVENT_FIRE_RESULT"
-	EvtError            Event = "EVENT_ERROR"
-	EvtGameOver         Event = "EVENT_GAME_OVER"
-)
-
 type EndReason string
 
 const (
@@ -94,9 +83,27 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 		return err
 	}
 	if m.players[0].IsReady && m.players[1].IsReady {
+		// whoever is ready first
+		if idx == 0 {
+			m.turn = 1
+		} else {
+			m.turn = 0
+		}
 		m.State = StateInBattle
 	}
 
+	return nil
+}
+
+func (m *Match) CancelReady(playerID string) error {
+	if m.State != StatePreparation {
+		return ErrInvalidPhase
+	}
+	idx, err := m.getPlayerIndex(playerID)
+	if err != nil {
+		return err
+	}
+	m.players[idx].IsReady = false
 	return nil
 }
 
