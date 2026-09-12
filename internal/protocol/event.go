@@ -1,10 +1,9 @@
 package protocol
 
-import "github.com/jauharfz/battleship/internal/game"
-
 type Event string
 
 const (
+	EvtRoomCreated      Event = "EVENT_ROOM_CREATED"
 	EvtPlaceShipsResult Event = "EVENT_PLACE_SHIPMENT_RESULT"
 	EvtPlayerReady      Event = "EVENT_PLAYER_READY"
 	EvtBattleStart      Event = "EVENT_BATTLE_START"
@@ -12,6 +11,10 @@ const (
 	EvtError            Event = "EVENT_ERROR"
 	EvtGameOver         Event = "EVENT_GAME_OVER"
 )
+
+type RoomCreatedData struct {
+	PlayerID string `json:"player_id"`
+}
 
 type PlaceShipsResultData struct {
 	IsValid bool   `json:"is_valid"`
@@ -24,17 +27,17 @@ type PlayerReadyData struct {
 }
 
 type BattleStartData struct {
-	FirstTurn string `json:"first_turn"`
+	Turn string `json:"turn"`
 }
 
 type FireResultData struct {
-	FiredBy       string
-	Target        string
-	Y             int
-	X             int
-	Hit           bool
-	ShipDestroyed game.ShipName
-	NextTurn      string
+	FiredBy       string `json:"fired_by"`
+	Target        string `json:"target"`
+	Y             uint8  `json:"y"`
+	X             uint8  `json:"x"`
+	Hit           bool   `json:"hit"`
+	ShipDestroyed string `json:"ship_destroyed"`
+	NextTurn      string `json:"next_turn"`
 }
 
 type GameOverData struct {

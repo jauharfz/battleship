@@ -14,7 +14,7 @@ const (
 	Destroyer       ShipType = "destroyer"
 )
 
-var shipSizes = map[ShipType]int{
+var shipSizes = map[ShipType]uint8{
 	AircraftCarrier: 5,
 	Battleship:      4,
 	HeavyCruiser:    3,
@@ -35,23 +35,23 @@ const (
 type Ship struct {
 	Name      ShipName
 	Type      ShipType
-	Size      int
-	X         int
-	Y         int
+	Size      uint8
+	X         uint8
+	Y         uint8
 	Direction Direction
-	Health    int
+	Health    uint8
 }
 
 type ShipPlacement struct {
 	Name      ShipName
 	Type      ShipType
-	X         int
-	Y         int
+	X         uint8
+	Y         uint8
 	Direction Direction
 }
 
 // TODO: Bound Checking X & Y
-func NewShip(name ShipName, typ ShipType, direction Direction, x, y int) (*Ship, error) {
+func NewShip(name ShipName, typ ShipType, direction Direction, x, y uint8) (*Ship, error) {
 	size, ok := shipSizes[typ]
 	if !ok {
 		return nil, fmt.Errorf("unknown ship type, please input valid ship type")
@@ -68,7 +68,7 @@ func NewShip(name ShipName, typ ShipType, direction Direction, x, y int) (*Ship,
 	return ship, nil
 }
 
-func (s *Ship) validate(size int) error {
+func (s *Ship) validate(size uint8) error {
 	if s.X < 0 || s.Y < 0 || s.X >= GridSize || s.Y >= GridSize {
 		return fmt.Errorf("coordinates out of the bounds")
 	}

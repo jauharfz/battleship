@@ -1,7 +1,5 @@
 package protocol
 
-import "github.com/jauharfz/battleship/internal/game"
-
 type Command string
 
 const (
@@ -12,14 +10,18 @@ const (
 )
 
 type PlaceShipsData struct {
-	Ships []game.ShipPlacement `json:"ships"`
+	Ships []ShipPlacementDTO `json:"ships"`
 }
-
-type CancelReadyData struct{}
 
 type FireData struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X uint8 `json:"x"`
+	Y uint8 `json:"y"`
 }
 
-type SurrenderData struct{}
+type ShipPlacementDTO struct {
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	X         uint8  `json:"x"`
+	Y         uint8  `json:"y"`
+	Direction string `json:"direction"`
+}

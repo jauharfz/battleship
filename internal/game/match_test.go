@@ -98,7 +98,7 @@ func TestMatch_Fire(t *testing.T) {
 		name       string
 		setup      func() *Match
 		playerID   string
-		x, y       int
+		x, y       uint8
 		wantErr    bool
 		fireResult FireResult
 	}{

@@ -26,7 +26,10 @@ func NewClient(conn *websocket.Conn) *Client {
 func (c *Client) ReadPump() {
 	defer func() {
 		if c.Room != nil {
-			c.Room.Unregister <- c
+			select {
+			case c.Room.Unregister <- c:
+			default:
+			}
 		} else {
 			close(c.Send)
 		}

@@ -36,8 +36,8 @@ func (p *Player) validateAllShipPosition(ships []ShipPlacement) error {
 		if err != nil {
 			return fmt.Errorf("failed to to place ship %v", err)
 		}
-		for idx := 0; idx < shipSizes[ship.Type]; idx++ {
-			var currX, currY int
+		for idx := uint8(0); idx < shipSizes[ship.Type]; idx++ {
+			var currX, currY uint8
 			if ship.Direction == Horizontal {
 				currX = ship.X + idx
 				currY = ship.Y
@@ -52,7 +52,7 @@ func (p *Player) validateAllShipPosition(ships []ShipPlacement) error {
 
 			tempGrid[currY][currX] = Cell{
 				State:     CellShip,
-				ShipIndex: i,
+				ShipIndex: uint8(i),
 			}
 
 		}

@@ -8,7 +8,7 @@ func TestNewShip(t *testing.T) {
 		shipName  ShipName
 		shipType  ShipType
 		direction Direction
-		x, y      int
+		x, y      uint8
 		wantErr   bool
 	}{
 		{

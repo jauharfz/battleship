@@ -42,13 +42,13 @@ type payload struct {
 func (r *Room) Run() error {
 	defer func() {
 		for client := range r.Clients {
-			close(client.Send)
 			delete(r.Clients, client)
+			close(client.Send)
 		}
 	}()
 	for {
 		select {
-		// TODO:CREATE A MATCH
+		// future TODO: matchmaking using REST first, and send the client_id foreach client if room has been created(?)
 		case client := <-r.Register:
 			client.Room = r
 			r.Clients[client] = struct{}{}
@@ -60,25 +60,36 @@ func (r *Room) Run() error {
 					idx++
 				}
 				r.Match = *game.NewMatch(clientIDList[0], clientIDList[1])
-			}
-		// this usually happen when the client is disconnected/timeout
-		case client := <-r.Unregister:
-			if _, exists := r.Clients[client]; exists {
-				close(client.Send)
-				delete(r.Clients, client)
-				if len(r.Clients) == 0 {
-					return nil
-				}
-				if r.Match.State == game.StateInBattle {
-					if err := r.disconnectedTimeoutHandler(client); err != nil {
+				// temp for debugging purpose
+				for client := range r.Clients {
+					// data, _ := json.Marshal("ROOM CREATED SUCCESFULLY")
+					if err := r.roomCreatedHandler(client); err != nil {
 						return err
 					}
 				}
 			}
+		// this usually happen when the client is disconnected/timeout
+		case client := <-r.Unregister:
+			if _, exists := r.Clients[client]; exists {
+				if len(r.Clients) == 0 {
+					return nil
+				}
+				if r.Match.State == game.StateInBattle {
+					if err := r.disconnectedTimeoutHandler(client, "finished"); err != nil {
+						return err
+					}
+				}
+				if r.Match.State == game.StatePreparation {
+					if err := r.disconnectedTimeoutHandler(client, "aborted"); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 		// determine the type -> unmarshal by type -> process the request -> sendEvent/sendError
 		case message := <-r.Ingress:
 			if err := r.handleMessage(message.Sender, message.Payload); err != nil {
-				r.Unregister <- message.Sender
+				r.sendError(message.Sender, err)
 			}
 
 		case <-r.Done:
@@ -90,13 +101,23 @@ func (r *Room) Run() error {
 func (r *Room) handleMessage(sender *Client, payload InboundPayload) error {
 	switch payload.Type {
 	case string(protocol.CmdPlaceShips):
-		var data protocol.PlaceShipsData
+		var data []protocol.ShipPlacementDTO
 		if err := json.Unmarshal(payload.Data, &data); err != nil {
 			slog.Error("failed to marshaling payload place_ships data", "error", err, "client_id", sender.ID)
 			return err
 		}
+		placeShips := make([]game.ShipPlacement, len(data))
+		for idx, place := range data {
+			var err error
+			placeShips[idx], err = place.ToDomain()
+			if err != nil {
+				slog.Warn("something isn't right with client during place ship", "error", err, "client_id", sender.ID, "data", data)
+				r.sendError(sender, err)
+				return err
+			}
+		}
 
-		if err := r.Match.PlaceShips(sender.ID, data.Ships); err != nil {
+		if err := r.Match.PlaceShips(sender.ID, placeShips); err != nil {
 			slog.Warn("something isn't right with client during place ship", "error", err, "client_id", sender.ID, "data", data)
 			r.sendError(sender, err)
 			break
@@ -150,19 +171,15 @@ func (r *Room) handleMessage(sender *Client, payload InboundPayload) error {
 		}
 
 	case string(protocol.CmdSurrender):
-		var data protocol.SurrenderData
-		if err := json.Unmarshal(payload.Data, &data); err != nil {
-			slog.Error("failed to marshaling payload surrender data", "error", err)
-			return err
-		}
 		if err := r.Match.Surrender(sender.ID); err != nil {
-			slog.Warn("something isn't right with client during surrender", "error", err, "client_id", sender.ID, "data", data)
+			slog.Warn("something isn't right with client during surrender", "error", err, "client_id", sender.ID)
 			r.sendError(sender, err)
 			break
 		}
 		if err := r.surrenderHandler(sender); err != nil {
 			return err
 		}
+
 	default:
 		slog.Warn("something isn't right with client, payload type command unrecognized", "client_id", sender.ID, "payload", payload)
 		r.sendError(sender, errors.New("Invalid Type Command"))
@@ -173,7 +190,7 @@ func (r *Room) handleMessage(sender *Client, payload InboundPayload) error {
 func (r *Room) sendError(client *Client, err error) error {
 	payload := OutboundPayload{
 		Type: string(protocol.EvtError),
-		Data: err,
+		Data: fmt.Sprintf("%s", err),
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -188,18 +205,18 @@ func (r *Room) sendError(client *Client, err error) error {
 	return nil
 }
 
-func (r *Room) sendEvent(client *Client, eventType protocol.Event, data []byte) error {
+func (r *Room) sendEvent(client *Client, eventType protocol.Event, data any) error {
 	payload := OutboundPayload{
 		Type: string(eventType),
 		Data: data,
 	}
-	data, err := json.Marshal(payload)
+	data2, err := json.Marshal(payload)
 	if err != nil {
 		slog.Error("failed to marshaling outbound payload at send_event", "error", err, "client_id", client.ID, "payload", payload)
 		return err
 	}
 	select {
-	case client.Send <- data:
+	case client.Send <- data2:
 	default:
 		r.Unregister <- client
 	}
@@ -207,17 +224,23 @@ func (r *Room) sendEvent(client *Client, eventType protocol.Event, data []byte) 
 }
 
 // TODO: handle either for the sender or the receiver
+
+func (r *Room) roomCreatedHandler(sender *Client) error {
+	message := protocol.RoomCreatedData{
+		PlayerID: sender.ID,
+	}
+	if err := r.sendEvent(sender, protocol.EvtRoomCreated, message); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *Room) placeShipsHandler(sender *Client) error {
 	message := protocol.PlaceShipsResultData{
 		IsValid: true,
 		Reason:  "its true ofc",
 	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		slog.Error("failed to marshaling message at place_ships handler", "error", err, "client_id", sender.ID, "message", message)
-		return err
-	}
-	if err := r.sendEvent(sender, protocol.EvtPlaceShipsResult, data); err != nil {
+	if err := r.sendEvent(sender, protocol.EvtPlaceShipsResult, message); err != nil {
 		return err
 	}
 	return nil
@@ -237,12 +260,8 @@ func (r *Room) readyHandlerHelper(senderID string, isPlayerReady bool, callLoc s
 		PlayerId:      senderID,
 		IsPlayerReady: isPlayerReady,
 	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		slog.Error(fmt.Sprintf("failed to marshaling message at %s handler", callLoc), "error", err, "client_id", senderID, "message", message)
-	}
 	for client := range r.Clients {
-		if err := r.sendEvent(client, protocol.EvtPlayerReady, data); err != nil {
+		if err := r.sendEvent(client, protocol.EvtPlayerReady, message); err != nil {
 			return err
 		}
 	}
@@ -250,20 +269,11 @@ func (r *Room) readyHandlerHelper(senderID string, isPlayerReady bool, callLoc s
 }
 
 func (r *Room) battleStartHandler(sender *Client) error {
-	opponent, err := r.getOpponent(sender)
-	if err != nil {
-		return err
-	}
 	message := protocol.BattleStartData{
-		FirstTurn: opponent.ID,
-	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		slog.Error("failed to marshaling message at battle_start handler", "error", err, "client_id", sender.ID, "message", message)
-		return err
+		Turn: r.Match.Players[r.Match.Turn].PlayerID,
 	}
 	for client := range r.Clients {
-		if err := r.sendEvent(client, protocol.EvtBattleStart, data); err != nil {
+		if err := r.sendEvent(client, protocol.EvtBattleStart, message); err != nil {
 			return err
 		}
 	}
@@ -280,43 +290,43 @@ func (r *Room) fireHandler(result game.FireResult) error {
 		Y:             result.Y,
 		X:             result.X,
 		Hit:           result.Hit,
-		ShipDestroyed: result.ShipDestroyed,
+		ShipDestroyed: string(result.ShipDestroyed),
 		NextTurn:      result.NextTurn,
 	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		slog.Error("failed to marshaling message at fire handler", "error", err, "client_id", result.FiredBy, "message", message)
-	}
 	for client := range r.Clients {
-		if err := r.sendEvent(client, protocol.EvtFireResult, data); err != nil {
+		if err := r.sendEvent(client, protocol.EvtFireResult, message); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *Room) gameOverHelper(client *Client, reason game.EndReason, errLoc string) error {
+func (r *Room) gameOverHelper(client *Client, reason game.EndReason, errLoc, status string) error {
+	var winnerID string
+	if status == "finished" {
+		winnerID = client.ID
+	}
 	message := protocol.GameOverData{
-		Status:   "finished",
-		WinnerId: client.ID,
+		Status:   status,
+		WinnerId: winnerID,
 		Reason:   string(reason),
 	}
-	data, err := json.Marshal(message)
-	if err != nil {
-		slog.Error(fmt.Sprintf("failed to marshaling message at %s handler", errLoc), "error", err, "client_id", client.ID, "message", message)
-		return err
-	}
-	for client := range r.Clients {
-		if err := r.sendEvent(client, protocol.EvtGameOver, data); err != nil {
+	if errLoc == "disconnected_timeout" {
+		if err := r.sendEvent(client, protocol.EvtGameOver, message); err != nil {
 			return err
 		}
+	} else {
+		for client := range r.Clients {
+			if err := r.sendEvent(client, protocol.EvtGameOver, message); err != nil {
+				return err
+			}
+		}
 	}
-	<-r.Done
 	return nil
 }
 
 func (r *Room) AllShipsDestroyedHandler(client *Client) error {
-	return r.gameOverHelper(client, game.AllEnemyShipsDestroyed, "all_ship_destroyed")
+	return r.gameOverHelper(client, game.AllEnemyShipsDestroyed, "all_ship_destroyed", "finished")
 }
 
 func (r *Room) surrenderHandler(sender *Client) error {
@@ -324,21 +334,23 @@ func (r *Room) surrenderHandler(sender *Client) error {
 	if err != nil {
 		return err
 	}
-	return r.gameOverHelper(opponent, game.OpponentSurrendered, "surrender")
+	return r.gameOverHelper(opponent, game.OpponentSurrendered, "surrender", "finished")
 }
 
 // TODO:create all end reason handler
-func (r *Room) disconnectedTimeoutHandler(client *Client) error {
-	if err := r.Match.Forfeit(client.ID); err != nil {
-		if err := r.sendError(client, err); err != nil {
-			return err
+func (r *Room) disconnectedTimeoutHandler(client *Client, status string) error {
+	if status == "finished" {
+		if err := r.Match.Forfeit(client.ID); err != nil {
+			if err := r.sendError(client, err); err != nil {
+				return err
+			}
 		}
 	}
 	opponent, err := r.getOpponent(client)
 	if err != nil {
 		return err
 	}
-	return r.gameOverHelper(opponent, game.OpponentDisconnectedTimeout, "disconnected_timeout")
+	return r.gameOverHelper(opponent, game.OpponentDisconnectedTimeout, "disconnected_timeout", status)
 }
 
 func (r *Room) getOpponent(sender *Client) (*Client, error) {

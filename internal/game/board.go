@@ -1,6 +1,6 @@
 package game
 
-type CellState int
+type CellState uint8
 
 const (
 	CellEmpty CellState = iota
@@ -11,14 +11,14 @@ const (
 
 type Cell struct {
 	State     CellState
-	ShipIndex int
+	ShipIndex uint8
 }
 
-type Direction int
+const GridSize = 10
+
+type Direction uint8
 
 const (
 	Horizontal Direction = iota
 	Vertical
 )
-
-const GridSize = 10

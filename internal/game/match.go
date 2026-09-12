@@ -6,7 +6,7 @@ import (
 
 const maxPlayers = 2
 
-type MatchState int
+type MatchState uint8
 
 const (
 	StatePreparation MatchState = iota
@@ -34,8 +34,8 @@ const (
 type FireResult struct {
 	FiredBy       string
 	Target        string
-	Y             int
-	X             int
+	Y             uint8
+	X             uint8
 	Hit           bool
 	ShipDestroyed ShipName
 	NextTurn      string
@@ -43,8 +43,8 @@ type FireResult struct {
 
 type Match struct {
 	State     MatchState
-	players   [maxPlayers]*Player
-	turn      int
+	Players   [maxPlayers]*Player
+	Turn      uint8
 	WinnerID  string
 	EndReason EndReason
 }
@@ -54,8 +54,8 @@ func NewMatch(p1ID, p2ID string) *Match {
 	player2 := NewPlayer(p2ID)
 	return &Match{
 		State:   StatePreparation,
-		players: [maxPlayers]*Player{player1, player2},
-		turn:    0,
+		Players: [maxPlayers]*Player{player1, player2},
+		Turn:    0,
 	}
 }
 
@@ -78,16 +78,16 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 	if err != nil {
 		return err
 	}
-	err = m.players[idx].validateAllShipPosition(shipPlacements)
+	err = m.Players[idx].validateAllShipPosition(shipPlacements)
 	if err != nil {
 		return err
 	}
-	if m.players[0].IsReady && m.players[1].IsReady {
+	if m.Players[0].IsReady && m.Players[1].IsReady {
 		// whoever is ready first
 		if idx == 0 {
-			m.turn = 1
+			m.Turn = 1
 		} else {
-			m.turn = 0
+			m.Turn = 0
 		}
 		m.State = StateInBattle
 	}
@@ -103,18 +103,18 @@ func (m *Match) CancelReady(playerID string) error {
 	if err != nil {
 		return err
 	}
-	m.players[idx].IsReady = false
+	m.Players[idx].IsReady = false
 	return nil
 }
 
 // fix: validate the turn , if ship destroyecd,
 // copy by value,validate x&y
-func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
+func (m *Match) Fire(playerID string, x, y uint8) (FireResult, error) {
 	if m.State != StateInBattle {
 		return FireResult{}, ErrInvalidPhase
 	}
 
-	if m.players[m.turn].PlayerID != playerID {
+	if m.Players[m.Turn].PlayerID != playerID {
 		return FireResult{}, ErrNotYourTurn
 	}
 
@@ -122,13 +122,13 @@ func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 		return FireResult{}, ErrInvalidPlacement
 	}
 
-	var nextTurn int
-	if m.turn == 0 {
+	var nextTurn uint8
+	if m.Turn == 0 {
 		nextTurn = 1
 	} else {
 		nextTurn = 0
 	}
-	opponent := m.players[nextTurn]
+	opponent := m.Players[nextTurn]
 	opponentGrid := &opponent.Grid[y][x]
 	var err error
 	var hit bool
@@ -146,10 +146,10 @@ func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 		}
 		if m.isAllShipDestroyed(nextTurn) {
 			m.State = StateFinished
-			m.WinnerID = m.players[m.turn].PlayerID
+			m.WinnerID = m.Players[m.Turn].PlayerID
 			m.EndReason = AllEnemyShipsDestroyed
 		}
-		nextTurn = m.turn
+		nextTurn = m.Turn
 	case CellHit:
 		err = ErrAlreadyShot
 	case CellMiss:
@@ -160,9 +160,9 @@ func (m *Match) Fire(playerID string, x, y int) (FireResult, error) {
 	if err != nil {
 		return FireResult{}, err
 	}
-	m.turn = nextTurn
+	m.Turn = nextTurn
 
-	return FireResult{playerID, opponent.PlayerID, y, x, hit, destroyedShipName, m.players[nextTurn].PlayerID}, nil
+	return FireResult{playerID, opponent.PlayerID, y, x, hit, destroyedShipName, m.Players[nextTurn].PlayerID}, nil
 }
 
 func (m *Match) Surrender(playerID string) error {
@@ -174,19 +174,19 @@ func (m *Match) Forfeit(playerID string) error {
 }
 
 // getPlayerIndex
-func (m *Match) getPlayerIndex(playerID string) (int, error) {
-	if m.players[0].PlayerID == playerID {
+func (m *Match) getPlayerIndex(playerID string) (int8, error) {
+	if m.Players[0].PlayerID == playerID {
 		return 0, nil
 	}
-	if m.players[1].PlayerID == playerID {
+	if m.Players[1].PlayerID == playerID {
 		return 1, nil
 	}
 	return -1, ErrUnknownError
 }
 
 // isAllShipDestroyed
-func (m *Match) isAllShipDestroyed(playerIdx int) bool {
-	for _, ship := range m.players[playerIdx].Ships {
+func (m *Match) isAllShipDestroyed(playerIdx uint8) bool {
+	for _, ship := range m.Players[playerIdx].Ships {
 		if ship.Health != 0 {
 			return false
 		}
@@ -213,7 +213,7 @@ func (m *Match) endMatchPrematurely(playerID string, endReason EndReason) error 
 		}
 
 		m.State = StateFinished
-		m.WinnerID = m.players[winnerIdx].PlayerID
+		m.WinnerID = m.Players[winnerIdx].PlayerID
 		m.EndReason = endReason
 
 		return nil
