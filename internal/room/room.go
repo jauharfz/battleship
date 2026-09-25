@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"uuid"
 
 	"github.com/jauharfz/battleship/internal/game"
 	"github.com/jauharfz/battleship/internal/protocol"
@@ -23,20 +22,15 @@ type Room struct {
 
 // ingress -> handle message from client, carrying client & byte
 // then validate the client, parse
-func NewRoom() *Room {
+func NewRoom(roomID string) *Room {
 	return &Room{
-		ID:         uuid.New().String(),
+		ID:         roomID,
 		Clients:    make(map[*Client]struct{}, 2),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Ingress:    make(chan Message),
 		Done:       make(chan struct{}),
 	}
-}
-
-type payload struct {
-	Type    string         `json:"type"`
-	Payload map[string]any `json:"payload"`
 }
 
 func (r *Room) Run() error {
@@ -75,12 +69,12 @@ func (r *Room) Run() error {
 					return nil
 				}
 				if r.Match.State == game.StateInBattle {
-					if err := r.disconnectedTimeoutHandler(client, "finished"); err != nil {
+					if err := r.disconnectedTimeoutHandler(client, protocol.Finished); err != nil {
 						return err
 					}
 				}
 				if r.Match.State == game.StatePreparation {
-					if err := r.disconnectedTimeoutHandler(client, "aborted"); err != nil {
+					if err := r.disconnectedTimeoutHandler(client, protocol.Aborted); err != nil {
 						return err
 					}
 				}
@@ -301,13 +295,13 @@ func (r *Room) fireHandler(result game.FireResult) error {
 	return nil
 }
 
-func (r *Room) gameOverHelper(client *Client, reason game.EndReason, errLoc, status string) error {
+func (r *Room) gameOverHelper(client *Client, reason game.EndReason, errLoc, status protocol.EndStatus) error {
 	var winnerID string
 	if status == "finished" {
 		winnerID = client.ID
 	}
 	message := protocol.GameOverData{
-		Status:   status,
+		Status:   string(status),
 		WinnerId: winnerID,
 		Reason:   string(reason),
 	}
@@ -338,7 +332,7 @@ func (r *Room) surrenderHandler(sender *Client) error {
 }
 
 // TODO:create all end reason handler
-func (r *Room) disconnectedTimeoutHandler(client *Client, status string) error {
+func (r *Room) disconnectedTimeoutHandler(client *Client, status protocol.EndStatus) error {
 	if status == "finished" {
 		if err := r.Match.Forfeit(client.ID); err != nil {
 			if err := r.sendError(client, err); err != nil {

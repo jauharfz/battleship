@@ -12,6 +12,13 @@ const (
 	EvtGameOver         Event = "EVENT_GAME_OVER"
 )
 
+type EndStatus string
+
+const (
+	Finished EndStatus = "FINISHED"
+	Aborted  EndStatus = "ABORTED"
+)
+
 type RoomCreatedData struct {
 	PlayerID string `json:"player_id"`
 }
@@ -36,13 +43,13 @@ type FireResultData struct {
 	Y             uint8  `json:"y"`
 	X             uint8  `json:"x"`
 	Hit           bool   `json:"hit"`
-	ShipDestroyed string `json:"ship_destroyed"`
+	ShipDestroyed string `json:"ship_destroyed,omitempty"`
 	NextTurn      string `json:"next_turn"`
 }
 
 type GameOverData struct {
 	Status   string `json:"status"`
-	WinnerId string `json:"winner_id"`
+	WinnerId string `json:"winner_id,omitempty"`
 	Reason   string `json:"reason"`
 }
 

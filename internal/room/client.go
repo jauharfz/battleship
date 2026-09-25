@@ -36,6 +36,7 @@ func (c *Client) ReadPump() {
 		c.Conn.Close()
 	}()
 	for {
+		//TODO: add isUnexpectedError msg
 		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
 			slog.Error("failed to read message from message reader", "error", err)
