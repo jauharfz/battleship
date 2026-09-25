@@ -6,10 +6,16 @@ func Routes(srv *Server) http.Handler {
 	mux := http.NewServeMux()
 
 	fsPublic := http.FileServer(http.Dir("./web/public"))
-	fsDist := http.FileServer(http.Dir("./web/dist"))
+	fsDist := http.FileServer(http.Dir("./web/dist/"))
+
 	mux.Handle("/", fsPublic)
 	mux.Handle("/dist/", http.StripPrefix("/dist/", fsDist))
 
 	mux.HandleFunc("/ws", srv.serveWs)
+	mux.HandleFunc("POST /api/v1/auth/guest", srv.RegisterGuest)
+
+	mux.Handle("POST /api/v1/matchmaking", srv.Auth(http.HandlerFunc(srv.EnterMatchmaking)))
+	mux.Handle("GET /api/v1/matchmaking/status", srv.Auth(http.HandlerFunc(srv.CheckStatus)))
+
 	return mux
 }

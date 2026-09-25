@@ -10,11 +10,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jauharfz/battleship/internal/auth"
 	"github.com/jauharfz/battleship/internal/lobby"
 	"github.com/jauharfz/battleship/internal/server"
 )
 
-const addr = ":8080"
+const (
+	addr   = ":8080"
+	secret = "inilahmysecretygy"
+)
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -23,14 +27,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	matchmaker := lobby.Matchmaker{}
-	handler := server.NewServer(&matchmaker)
+	jwtManager := auth.NewJWTManager(secret, 3000*time.Second)
+	ticketStore := auth.NewTicketStore(30*time.Second, 300*time.Second)
+	matchmaker := lobby.NewMatchmaker(ticketStore)
+	handler := server.NewServer(jwtManager, ticketStore, matchmaker)
 	srv := http.Server{
 		Addr:    addr,
 		Handler: server.Routes(handler),
 	}
 
 	var wg sync.WaitGroup
+	wg.Go(func() { handler.Matchmaker.Matching(&wg, ctx) })
+	wg.Go(func() { handler.TicketStore.TicketSweeper(ctx) })
+
 	wg.Go(func() {
 		slog.Info("server starting", "addr", addr)
 		err := srv.ListenAndServe()

@@ -15,25 +15,28 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-// TODO: defer conn, rmv http.err
+// TODO: fix the older serv ver, don't forget to consume the ticket
 func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
+	// consume && validate before upgrade
+	ticketID := r.URL.Query().Get("ticket")
+	ticket, err := s.TicketStore.Consume(ticketID)
+	if err != nil {
+		slog.Warn("an error occured during consume ticket", "error", err)
+		http.Error(w, "an error occured during consume ticket", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("failed to upgrade to websocker", "error", err)
+		slog.Error("failed to upgrade to websocket", "error", err)
 		return
 	}
 	client := room.NewClient(conn)
-	defer func() {
-		if client.Room == nil {
-			s.Matchmaker.Dequeue()
-		}
-		conn.Close()
-	}()
 
 	slog.Info("client connected", "remote_addr", conn.RemoteAddr())
 	defer slog.Info("client disconnected", "remote_addr", conn.RemoteAddr())
 
+	s.RoomManager.RegisterClient(ticket.RoomID, client)
 	go client.WritePump()
-	s.Matchmaker.Enqueue(client)
 	client.ReadPump()
 }

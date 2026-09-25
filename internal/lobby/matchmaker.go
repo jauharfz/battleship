@@ -1,34 +1,45 @@
 package lobby
 
 import (
+	"context"
+	"log/slog"
 	"sync"
+	"uuid"
 
-	"github.com/jauharfz/battleship/internal/room"
+	"github.com/jauharfz/battleship/internal/auth"
 )
 
 type Matchmaker struct {
-	mu      sync.Mutex
-	Waiting *room.Client
+	Pool        chan string
+	waiting     string
+	ticketStore *auth.TicketStore
 }
 
-func (m *Matchmaker) Enqueue(client *room.Client) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.Waiting == nil || m.Waiting == client {
-		m.Waiting = client
-		return
+func NewMatchmaker(ticketStore *auth.TicketStore) *Matchmaker {
+	return &Matchmaker{
+		Pool:        make(chan string),
+		waiting:     "",
+		ticketStore: ticketStore,
 	}
-
-	room := room.NewRoom()
-	go room.Run()
-
-	room.Register <- m.Waiting
-	room.Register <- client
-	m.Waiting = nil
 }
 
-func (m *Matchmaker) Dequeue() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.Waiting = nil
+// from handler = queue <- playerID
+func (m *Matchmaker) Matching(wg *sync.WaitGroup, ctx context.Context) {
+	slog.Info("matchmaking started")
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("matchmaking shutdown gracefully")
+			return
+		case id := <-m.Pool:
+			if m.waiting == "" {
+				m.waiting = id
+				continue
+			}
+			roomID := uuid.New().String()
+			m.ticketStore.Issue(m.waiting, roomID)
+			m.ticketStore.Issue(id, roomID)
+			m.waiting = ""
+		}
+	}
 }
