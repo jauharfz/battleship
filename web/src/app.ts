@@ -1,6 +1,7 @@
 import { getGuestJWT } from "./auth.js";
 import { enterMatchmaking, poolMatchmaking } from "./matchmaking.js";
 import { upgradeWebsocket } from "./websocket.js";
+import { createGrid } from "./grid.js";
 
 let ws: WebSocket;
 let jwt_token: string;
@@ -17,6 +18,8 @@ let playerID: string;
 
 async function mainApp(): Promise<void> {
   try {
+    createGrid("player-grid");
+    createGrid("opponent-grid");
     jwt_token = await getGuestJWT();
   } catch (error) {
     console.error("unexpected error: ", error);
