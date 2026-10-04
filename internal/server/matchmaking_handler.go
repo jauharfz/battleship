@@ -4,35 +4,16 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"uuid"
 )
-
-func (s *Server) RegisterGuest(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
-	playerID := fmt.Sprintf("player_%s", uuid.New().String())
-
-	token, err := s.JWTManager.Sign(playerID)
-	if err != nil {
-		slog.Error("failed to create guest token", "error", err)
-		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-	response := jsonResponse{
-		Status: "token created succesfully",
-		Data: map[string]string{
-			"token": token,
-		},
-	}
-	if err := s.respondWithJSON(w, http.StatusCreated, response); err != nil {
-		slog.Error("failed to encode json response", "error", err)
-		s.respondWithError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-}
 
 func (s *Server) EnterMatchmaking(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 	playerID := r.Context().Value(contextKeyPlayerID).(string)
+	if playerID == s.Matchmaker.Waiting {
+		slog.Warn(fmt.Sprintf("user trying to enter matchmaking twice lmao, userID: %s", playerID))
+		s.respondWithError(w, http.StatusBadRequest, "Bad Request")
+		return
+	}
 	s.Matchmaker.Pool <- playerID
 	response := jsonResponse{
 		Status: "queued",
@@ -72,3 +53,5 @@ func (s *Server) CheckStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// TODO: create a handler(?) which matchmaking by hardening room id -> matchmaking by room? -> issue?, : need to adjust register guest to provide default room id? create room lookup too?

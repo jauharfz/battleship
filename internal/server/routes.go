@@ -13,6 +13,7 @@ func Routes(srv *Server) http.Handler {
 
 	mux.HandleFunc("/ws", srv.serveWs)
 	mux.HandleFunc("POST /api/v1/auth/guest", srv.RegisterGuest)
+	mux.HandleFunc("QUERY /api/v1/validate", srv.CheckShipPlacements)
 
 	mux.Handle("POST /api/v1/matchmaking", srv.Auth(http.HandlerFunc(srv.EnterMatchmaking)))
 	mux.Handle("GET /api/v1/matchmaking/status", srv.Auth(http.HandlerFunc(srv.CheckStatus)))
