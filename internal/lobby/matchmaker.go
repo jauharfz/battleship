@@ -11,14 +11,14 @@ import (
 
 type Matchmaker struct {
 	Pool        chan string
-	waiting     string
+	Waiting     string
 	ticketStore *auth.TicketStore
 }
 
 func NewMatchmaker(ticketStore *auth.TicketStore) *Matchmaker {
 	return &Matchmaker{
 		Pool:        make(chan string),
-		waiting:     "",
+		Waiting:     "",
 		ticketStore: ticketStore,
 	}
 }
@@ -32,14 +32,16 @@ func (m *Matchmaker) Matching(wg *sync.WaitGroup, ctx context.Context) {
 			slog.Info("matchmaking shutdown gracefully")
 			return
 		case id := <-m.Pool:
-			if m.waiting == "" {
-				m.waiting = id
+			if m.Waiting == "" {
+				m.Waiting = id
 				continue
 			}
 			roomID := uuid.New().String()
-			m.ticketStore.Issue(m.waiting, roomID)
+			m.ticketStore.Issue(m.Waiting, roomID)
 			m.ticketStore.Issue(id, roomID)
-			m.waiting = ""
+			m.Waiting = ""
 		}
 	}
 }
+
+// TODO: handle the condition if the client is going away while matchmaking

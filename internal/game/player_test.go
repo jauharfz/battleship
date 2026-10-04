@@ -91,7 +91,7 @@ func TestPlayer_ValidateAllShipPosition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := NewPlayer("666").validateAllShipPosition(tt.ships)
+			err := NewPlayer("666").SetShips(tt.ships)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("test failed, error: %v, wantErr: %v", err, tt.wantErr)
 			}

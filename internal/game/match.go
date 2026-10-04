@@ -78,7 +78,7 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 	if err != nil {
 		return err
 	}
-	err = m.Players[idx].validateAllShipPosition(shipPlacements)
+	err = m.Players[idx].SetShips(shipPlacements)
 	if err != nil {
 		return err
 	}

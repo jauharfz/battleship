@@ -296,13 +296,9 @@ func (r *Room) fireHandler(result game.FireResult) error {
 }
 
 func (r *Room) gameOverHelper(client *Client, reason game.EndReason, errLoc, status protocol.EndStatus) error {
-	var winnerID string
-	if status == "finished" {
-		winnerID = client.ID
-	}
 	message := protocol.GameOverData{
 		Status:   string(status),
-		WinnerId: winnerID,
+		WinnerId: client.ID,
 		Reason:   string(reason),
 	}
 	if errLoc == "disconnected_timeout" {
