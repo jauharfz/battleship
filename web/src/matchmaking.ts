@@ -8,9 +8,14 @@ export async function enterMatchmaking(token: string): Promise<void> {
       },
     });
     if (!res.ok) {
+      console.error();
       throw new Error(
         `failed to fetch response from enter matchmaking, status: ${res.status}`,
       );
+    }
+    const payload = await res.json();
+    if (payload.status == "error") {
+      throw new Error(payload.error);
     }
     return;
   } catch (error) {
@@ -35,6 +40,9 @@ export async function poolMatchmaking(token: string): Promise<string> {
         );
       }
       const payload = await res.json();
+      if (payload.status == "error") {
+        throw new Error(payload.error);
+      }
       if (payload.status == "matched") {
         return payload.data.ws_token;
       }

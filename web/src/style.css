@@ -22,6 +22,13 @@ body{
 	align-items: center;
 }
 
+#leave-link{
+	/* background-color: transparent; */
+	color: red;
+	text-align: right;
+	font-size: small;
+}
+
 .container{
 	display: flex;
 	justify-content: center;
@@ -119,6 +126,12 @@ body{
   box-shadow: none;
 }
 
+#match-button:disabled{
+	pointer-events: none;
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
 .board-grid{
 	display: grid;
 	grid-template-columns: repeat(10,1fr);
@@ -130,11 +143,12 @@ body{
 	width: 100%;
 }
 
-.cell{
-	background-color: whitesmoke;
-	width: 100%;
-	height: 100%;
+.board-grid.disabled{
+	pointer-events: none;
+	user-select: none;
+	opacity: 0.5;
 }
+
 
 .board-label{
 	padding: 1rem 2rem;
@@ -146,5 +160,23 @@ body{
 	font-size: 50%;
 }
 
+.cell{
+	background-color: whitesmoke;
+	width: 100%;
+	height: 100%;
+}
+
+.cell[data-state="ship"]{
+	border: 1px solid blue;
+	background-color: aliceblue;
+}
+
+.cell[data-state="hit"]{
+	border: 1px solid red;
+}
+
+.cell[data-state="miss"]{
+	background-color: transparent;
+}
 
 /* TODO: don't forget to create opponent-grid .cell hover, and .cell w/ state ship,hit and miss */

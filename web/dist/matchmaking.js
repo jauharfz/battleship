@@ -18,7 +18,12 @@ export function enterMatchmaking(token) {
                 },
             });
             if (!res.ok) {
+                console.error();
                 throw new Error(`failed to fetch response from enter matchmaking, status: ${res.status}`);
+            }
+            const payload = yield res.json();
+            if (payload.status == "error") {
+                throw new Error(payload.error);
             }
             return;
         }
@@ -43,6 +48,9 @@ export function poolMatchmaking(token) {
                     throw new Error(`failed to fetch response from check status: ${res.status}`);
                 }
                 const payload = yield res.json();
+                if (payload.status == "error") {
+                    throw new Error(payload.error);
+                }
                 if (payload.status == "matched") {
                     return payload.data.ws_token;
                 }
