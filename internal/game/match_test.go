@@ -4,32 +4,67 @@ import (
 	"testing"
 )
 
+// TODO: add more ship placement test
 var valid5ShipsPlacement = []ShipPlacement{
 	{
 		IJNTaihou,
 		AircraftCarrier,
 		5, 9,
 		Horizontal,
-	}, {
+	},
+	{
 		HMSBelfast,
 		LightCruiser,
 		0, 0,
 		Vertical,
-	}, {
+	},
+	{
 		KMSBismarck,
 		Battleship,
 		6, 0,
 		Horizontal,
-	}, {
+	},
+	{
 		KMSPrinzEugen,
 		HeavyCruiser,
 		0, 7,
 		Vertical,
-	}, {
+	},
+	{
 		USSLaffey,
 		Destroyer,
 		5, 5,
 		Horizontal,
+	},
+	{
+		IJNTaihou,
+		AircraftCarrier,
+		8, 2,
+		Vertical,
+	},
+	{
+		HMSBelfast,
+		LightCruiser,
+		1, 5,
+		Horizontal,
+	},
+	{
+		KMSBismarck,
+		Battleship,
+		2, 0,
+		Vertical,
+	},
+	{
+		KMSPrinzEugen,
+		HeavyCruiser,
+		4, 7,
+		Horizontal,
+	},
+	{
+		USSLaffey,
+		Destroyer,
+		4, 2,
+		Vertical,
 	},
 }
 

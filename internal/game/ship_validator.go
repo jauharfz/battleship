@@ -3,18 +3,19 @@ package game
 import "fmt"
 
 func ValidateAllShipPosition(ships []ShipPlacement) ([]*Ship, *[10][10]Cell, error) {
-	if len(ships) != len(shipSizes) {
+	if len(ships) != exactShipsNumber {
 		return nil, nil, fmt.Errorf("invalid number of ships")
 	}
 
-	tempShipType := make(map[ShipType]struct{})
+	// max for each ship type is 2 -> total 10
+	tempShipType := make(map[ShipType]uint8)
 	var tempGrid [GridSize][GridSize]Cell
 	var tempShips []*Ship
 	for i, shipPlacement := range ships {
-		if _, ok := tempShipType[shipPlacement.Type]; ok {
-			return nil, nil, fmt.Errorf("invalid ship type, already have %s type", shipPlacement.Type)
+		if num := tempShipType[shipPlacement.Type]; num >= 2 {
+			return nil, nil, fmt.Errorf("invalid ship type, max capapity for %s type", shipPlacement.Type)
 		}
-		tempShipType[shipPlacement.Type] = struct{}{}
+		tempShipType[shipPlacement.Type]++
 		ship, err := NewShip(shipPlacement.Name, shipPlacement.Type, shipPlacement.Direction, shipPlacement.X, shipPlacement.Y)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to to place ship %v", err)

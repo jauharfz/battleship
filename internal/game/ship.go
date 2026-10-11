@@ -22,6 +22,8 @@ var shipSizes = map[ShipType]uint8{
 	Destroyer:       2,
 }
 
+var exactShipsNumber = len(shipSizes) * 2
+
 type ShipName string
 
 const (
