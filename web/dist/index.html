@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="utf-8">
+        <title>battleship</title>
+      <script type="module" crossorigin src="/assets/index-UMJOHpCx.js"></script>
+      <link rel="stylesheet" crossorigin href="/assets/index-BAcYBFoJ.css">
+    </head>
+    <body>
+        <header class="navbar">
+            <h2 id="title">Battleship</h2>
+            <div id="game-state"></div>
+            <a href="#skill_issue" id="leave-link" hidden>Leave</a>
+        </header>
+
+        <main class="container"> 
+            <section id="player-side" class="board-wrapper">
+                    <div id="player-indicator" class="ship-indicator" hidden>indicator-placeholder</div>
+                    <div id="player-area">
+                        <div id="player-grid" class="board-grid"></div>
+                        <div id="player-label" class="board-label">Your grid</div>
+                    </div>
+            </section>
+            <section id="opponent-side" class="board-wrapper">
+                    <!-- prematch-overlay stacking the ship-grids if state == prep, hide if isn't -->
+                    <div id="opponent-area">
+                        <div id="opponent-grid-wrapper">
+                            <div id="prematch-overlay">
+                                <button id="match-button">Match</button>
+                            </div>
+                            <div id="opponent-grid" class="board-grid">
+                            </div>
+                        </div>
+                        <div id="opponent-label" class="board-label">Opponent grid</div>
+                    </div>
+                    <div id="opponent-indicator" class="ship-indicator" hidden>indicator-placeholder</div>
+            </section>
+        </main>
+
+        <footer class="footer">&copy; 2026 jauharfz</footer>
+    </body>
+</html>

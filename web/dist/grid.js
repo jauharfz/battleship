@@ -1,12 +1,3 @@
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 import { send } from "./websocket";
 export function createGrid(containerID) {
     const grid = document.getElementById(containerID);
@@ -26,13 +17,29 @@ export function createGrid(containerID) {
     }
     return cells;
 }
-export function handleOpponentGrid(event) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const cell = event.target.closest("[data-y][data-y]");
-        if (!cell)
-            return;
-        if (!(cell instanceof HTMLElement))
-            return;
-        send("CMD_FIRE", { x: Number(cell.dataset.x), y: Number(cell.dataset.y) });
-    });
+export async function handleOpponentGrid(event, isMyTurn, state) {
+    if (state != "INBATTLE")
+        return;
+    if (!isMyTurn)
+        return;
+    const cell = event.target.closest("[data-y][data-x]");
+    if (!cell)
+        return;
+    if (!(cell instanceof HTMLElement))
+        return;
+    if (cell.dataset.state == "hit" || cell.dataset.state == "miss") {
+        console.warn("grid already fired, pls fire another grid");
+        return;
+    }
+    send("CMD_FIRE", { x: Number(cell.dataset.x), y: Number(cell.dataset.y) });
+}
+export function getCellCoordinate(playerGrid, event) {
+    const style = getComputedStyle(playerGrid);
+    const rect = playerGrid.getBoundingClientRect();
+    const borderLeft = parseFloat(style.borderLeft);
+    const contentWidth = rect.width - borderLeft - parseFloat(style.borderRight);
+    const pitch = (contentWidth + parseFloat(style.gap)) / 10;
+    const col = (event.clientX - rect.left - borderLeft) / pitch;
+    const row = (event.clientY - rect.top - parseFloat(style.borderTop)) / pitch;
+    return [Math.floor(col), Math.floor(row)];
 }

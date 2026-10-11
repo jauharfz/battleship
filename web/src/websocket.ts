@@ -1,3 +1,4 @@
+import { defaultShips } from "./constants";
 import { WireMessage } from "./types";
 
 let ws: WebSocket;
@@ -41,13 +42,12 @@ export async function attachWebSocketHandlers(
     } catch (err) {
       console.warn("Received non-JSON frame:", event.data, err);
     }
+  };
+  ws.onerror = (event) => {
+    console.error(`SOCKET_ERROR: ${event}`);
+  };
 
-    ws.onerror = (event) => {
-      console.error(`SOCKET_ERROR: ${event}`);
-    };
-
-    ws.onclose = (event) => {
-      console.log(`SOCKET_CLOSE: CODE=${event.code}, REASON=${event.reason}`);
-    };
+  ws.onclose = (event) => {
+    console.log(`SOCKET_CLOSE: CODE=${event.code}, REASON=${event.reason}`);
   };
 }

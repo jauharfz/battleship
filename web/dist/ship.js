@@ -1,63 +1,102 @@
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-export const shipSizes = new Map([
-    ["aircraft_carrier", 5],
-    ["battleship", 4],
-    ["heavy_cruiser", 3],
-    ["light_cruiser", 3],
-    ["destroyer", 2],
-]);
+import { shipSizes } from "./constants";
 // there's need validation each ship
 // and each ship need iterates the length/sizes ship itself
 // okey, just focus create client validation for each ship first
-export function shipPlacementServerValidation(ships, token) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const res = yield fetch("/api/v1/validate", {
-                method: "QUERY",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(ships),
-            });
-            const payload = yield res.json();
-            if (payload.status == "error") {
-                throw new Error(payload.error);
-            }
-            return;
+export async function shipPlacementServerValidation(ships, token) {
+    try {
+        const res = await fetch("/api/v1/validate", {
+            method: "QUERY",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(ships),
+        });
+        const payload = await res.json();
+        if (payload.status == "error") {
+            throw new Error(payload.error);
         }
-        catch (error) {
-            throw error;
-        }
-    });
+        return;
+    }
+    catch (error) {
+        throw error;
+    }
 }
-export function renderShipPlacement(cells, ships) {
-    traverseShips(cells, ships, true);
+export function renderShipPlacement(cells, ships, shipsIndex) {
+    shipsIndex = Array.from({ length: 10 }, () => new Array(10).fill(-1));
+    traverseShips(cells, ships, shipsIndex, true);
+    return shipsIndex;
 }
-export function shipPlacementClientValidation(cells, ships) {
-    return traverseShips(cells, ships, false);
+export function shipPlacementClientValidation(cells, ships, shipsIndex) {
+    return traverseShips(cells, ships, shipsIndex, false);
 }
 // TODO: add another validation for outbound
-function traverseShips(cells, ships, isValid) {
+function traverseShips(cells, ships, shipsIndex, isValid) {
+    let index = 0;
     for (let ship of ships) {
-        for (let i = 0; i < shipSizes.get(ship.type); i++) {
+        for (let i = 0; i < shipSizes[ship.type]; i++) {
             const currX = ship.direction == "Horizontal" ? ship.x + i : ship.x;
-            const currY = ship.direction == "Vertical" ? ship.y + i : ship.y;
-            const cell = cells[currY][currX];
-            if (cell.dataset.state) {
+            if (currX > 9 || currX < 0)
                 return false;
-            }
+            const currY = ship.direction == "Vertical" ? ship.y + i : ship.y;
+            if (currY > 9 || currY < 0)
+                return false;
+            // buildOccupancy
+            const cell = cells[currY][currX];
             if (isValid) {
+                shipsIndex[currY][currX] = index;
                 cell.dataset.state = "ship";
             }
+            else {
+                if (cell.dataset.state || shipsIndex[currY][currX] != -1) {
+                    return false;
+                }
+            }
+        }
+        if (isValid)
+            index++;
+    }
+    return true;
+}
+// validate col&row with occupancy? or shipsIndex?
+export function validatePlacement(col, row, ship, shipsIndex, currentShipIndex) {
+    for (let i = 0; i < shipSizes[ship.type]; i++) {
+        const currX = ship.direction == "Horizontal" ? col + i : col;
+        if (currX > 9 || currX < 0)
+            return false;
+        const currY = ship.direction == "Vertical" ? row + i : row;
+        if (currY > 9 || currY < 0)
+            return false;
+        if (shipsIndex[currY][currX] != -1 &&
+            shipsIndex[currY][currX] != currentShipIndex) {
+            return false;
         }
     }
     return true;
+}
+export function renderPreview(col, row, ship, isValid, cells) {
+    for (let i = 0; i < shipSizes[ship.type]; i++) {
+        const currX = ship.direction == "Horizontal" ? col + i : col;
+        const currY = ship.direction == "Vertical" ? row + i : row;
+        if (currX >= 0 && currX <= 9 && currY >= 0 && currY <= 9) {
+            cells[currY][currX].dataset.preview = isValid ? "valid" : "invalid";
+        }
+    }
+}
+export function clearPreview(oldCol, oldRow, ship, cells) {
+    for (let i = 0; i < shipSizes[ship.type]; i++) {
+        const currX = ship.direction == "Horizontal" ? oldCol + i : oldCol;
+        const currY = ship.direction == "Vertical" ? oldRow + i : oldRow;
+        if (currX >= 0 && currX <= 9 && currY >= 0 && currY <= 9) {
+            delete cells[currY][currX].dataset.preview;
+        }
+    }
+}
+export function clearState(col, row, ship, cells) {
+    for (let i = 0; i < shipSizes[ship.type]; i++) {
+        const currX = ship.direction == "Horizontal" ? col + i : col;
+        const currY = ship.direction == "Vertical" ? row + i : row;
+        if (currX >= 0 && currX <= 9 && currY >= 0 && currY <= 9) {
+            delete cells[currY][currX].dataset.state;
+        }
+    }
 }

@@ -141,6 +141,9 @@ body{
 	border: 1px solid lightblue;
 	aspect-ratio: 1/1;
 	width: 100%;
+	touch-action: none;
+	user-select: none;
+
 }
 
 .board-grid.disabled{
@@ -179,4 +182,10 @@ body{
 	background-color: transparent;
 }
 
-/* TODO: don't forget to create opponent-grid .cell hover, and .cell w/ state ship,hit and miss */
+.cell[data-preview="valid"]{
+	border: 1px solid green;
+}
+
+.cell[data-preview="invalid"]{
+	border: 1px solid red;
+}
