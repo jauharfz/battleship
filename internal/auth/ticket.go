@@ -9,6 +9,8 @@ import (
 	"uuid"
 )
 
+// every checkstatus just renew last checked && check opponent last checked
+// if opponent is outdated, repool to matchmaker and delete the ticket/consume
 type Ticket struct {
 	PlayerID  string
 	RoomID    string
@@ -40,13 +42,14 @@ func NewTicketStore(ttl, sweepInterval time.Duration) *TicketStore {
 	}
 }
 
-func (ts *TicketStore) Issue(playerID, roomID string) {
+func (ts *TicketStore) Issue(playerID, roomID string) *Ticket {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	// create ticket -> store to map -> delete either in consume or sweeper
 	ticket := NewTicket(playerID, roomID, ts.ttl)
 	ts.ticketIDs[playerID] = uuid.New().String()
 	ts.tickets[ts.ticketIDs[playerID]] = ticket
+	return ticket
 }
 
 func (ts *TicketStore) Get(playerID string) (string, error) {
@@ -56,7 +59,7 @@ func (ts *TicketStore) Get(playerID string) (string, error) {
 	if !exist {
 		return "", errors.New("ticket/token_id doesn't exist")
 	}
-	_, err := ts.getTicketById(ticketID)
+	_, err := ts.GetTicketById(ticketID)
 	if err != nil {
 		return "", err
 	}
@@ -69,7 +72,7 @@ func (ts *TicketStore) Consume(ticketID string) (*Ticket, error) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
-	ticket, err := ts.getTicketById(ticketID)
+	ticket, err := ts.GetTicketById(ticketID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +81,7 @@ func (ts *TicketStore) Consume(ticketID string) (*Ticket, error) {
 	return ticket, nil
 }
 
-func (ts *TicketStore) getTicketById(ticketID string) (*Ticket, error) {
+func (ts *TicketStore) GetTicketById(ticketID string) (*Ticket, error) {
 	ticket, exist := ts.tickets[ticketID]
 	if !exist {
 		return nil, errors.New("ticket/token doesn't exist")

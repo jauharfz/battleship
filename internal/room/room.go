@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jauharfz/battleship/internal/game"
 	"github.com/jauharfz/battleship/internal/protocol"
@@ -18,11 +19,12 @@ type Room struct {
 	Unregister chan *Client
 	Ingress    chan Message
 	Done       chan struct{}
+	rm         *RoomManager
 }
 
 // ingress -> handle message from client, carrying client & byte
 // then validate the client, parse
-func NewRoom(roomID string) *Room {
+func NewRoom(roomID string, rm *RoomManager) *Room {
 	return &Room{
 		ID:         roomID,
 		Clients:    make(map[*Client]struct{}, 2),
@@ -30,6 +32,7 @@ func NewRoom(roomID string) *Room {
 		Unregister: make(chan *Client),
 		Ingress:    make(chan Message),
 		Done:       make(chan struct{}),
+		rm:         rm,
 	}
 }
 
@@ -37,16 +40,25 @@ func (r *Room) Run() error {
 	defer func() {
 		for client := range r.Clients {
 			delete(r.Clients, client)
+			delete(r.rm.Rooms, r.ID)
 			close(client.Send)
 		}
 	}()
+
+	// execute just for ensure 2 player really connected, otherwise disconn
+	joinTimer := time.NewTimer(6 * time.Second)
+	joinTimeoutCh := joinTimer.C
+
 	for {
 		select {
-		// future TODO: matchmaking using REST first, and send the client_id foreach client if room has been created(?)
 		case client := <-r.Register:
 			client.Room = r
 			r.Clients[client] = struct{}{}
+			// TODO: handle timeout if len != 2
 			if len(r.Clients) == 2 {
+				joinTimer.Stop()
+				joinTimeoutCh = nil
+
 				var clientIDList [2]string
 				idx := 0
 				for client := range r.Clients {
@@ -62,6 +74,13 @@ func (r *Room) Run() error {
 					}
 				}
 			}
+		case <-joinTimeoutCh:
+			if len(r.Clients) != 2 {
+				for client := range r.Clients {
+					r.gameOverHelper(client, game.OpponentDisconnectedTimeout, "disconnected_timeout", protocol.Aborted)
+				}
+			}
+
 		// this usually happen when the client is disconnected/timeout
 		case client := <-r.Unregister:
 			if _, exists := r.Clients[client]; exists {

@@ -13,13 +13,14 @@ func NewRoomManager() *RoomManager {
 	}
 }
 
+// if !exist ->
 func (rm *RoomManager) RegisterClient(roomID string, client *Client) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
 	room, exist := rm.Rooms[roomID]
 	if !exist {
-		room = NewRoom(roomID)
+		room = NewRoom(roomID, rm)
 		rm.Rooms[roomID] = room
 		go room.Run()
 	}

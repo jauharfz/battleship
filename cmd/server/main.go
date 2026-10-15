@@ -27,9 +27,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	ticketStore := auth.NewTicketStore(6*time.Second, 4*time.Second)
+	matchmaker := lobby.NewMatchmaker(ticketStore, 4*time.Second)
 	jwtManager := auth.NewJWTManager(secret, 3000*time.Second)
-	ticketStore := auth.NewTicketStore(30*time.Second, 300*time.Second)
-	matchmaker := lobby.NewMatchmaker(ticketStore)
 	handler := server.NewServer(jwtManager, ticketStore, matchmaker)
 	srv := http.Server{
 		Addr:    addr,

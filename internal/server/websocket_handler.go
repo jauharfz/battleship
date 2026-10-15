@@ -26,6 +26,8 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("ticket consumed", "ticket", ticket)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("failed to upgrade to websocket", "error", err)
