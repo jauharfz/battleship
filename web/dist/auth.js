@@ -1,7 +1,7 @@
 const GUEST_TOKEN_KEY = "guest_jwt";
 export async function getGuestJWT() {
     const cachedToken = sessionStorage.getItem(GUEST_TOKEN_KEY);
-    if (cachedToken) {
+    if (cachedToken && !isTokenExpired(cachedToken)) {
         return cachedToken;
     }
     try {
@@ -22,5 +22,17 @@ export async function getGuestJWT() {
     catch (error) {
         console.error("failed to get guest JWT ", error);
         throw error;
+    }
+}
+export function isTokenExpired(token) {
+    try {
+        const payloadB64 = token.split(".")[1];
+        const payload = JSON.parse(atob(payloadB64));
+        if (!payload.exp)
+            return true;
+        return Date.now() >= payload.exp * 1000 - 10000;
+    }
+    catch {
+        return true;
     }
 }

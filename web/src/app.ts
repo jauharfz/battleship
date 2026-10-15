@@ -1,4 +1,4 @@
-import { getGuestJWT } from "./auth.js";
+import { getGuestJWT, isTokenExpired } from "./auth.js";
 import { enterMatchmaking, poolMatchmaking } from "./matchmaking.js";
 import {
   attachWebSocketHandlers,
@@ -19,6 +19,7 @@ import {
 import { DragSession, MatchState, Ship, WireMessage } from "./types.js";
 import { defaultShips } from "./constants.js";
 
+let path: string;
 let jwt_token: string;
 let matchState: MatchState = "PREPARATION";
 let isMyTurn: boolean;
@@ -32,6 +33,11 @@ const playerGrid = document.getElementById("player-grid") as HTMLDivElement;
 const opponentGrid = document.getElementById("opponent-grid") as HTMLDivElement;
 
 const gameState = document.getElementById("game-state")!;
+
+const randomLink = document.getElementById("random-link") as HTMLElement;
+const friendLink = document.getElementById("friend-link") as HTMLElement;
+const haveFriend = document.getElementById("have-friend") as HTMLElement;
+const urlLink = document.getElementById("url-link") as HTMLElement;
 
 const matchButton = document.getElementById(
   "match-button",
@@ -48,6 +54,9 @@ let playerID: string;
 // TODO: intiate the fleet -> buildOccupancy -> renderFleet
 async function mainApp(): Promise<void> {
   try {
+    if (window.location.pathname != "/") {
+      handleFriendLink();
+    }
     gameState.textContent = "Prepare your Ships";
     jwt_token = await getGuestJWT();
     playerOccupancy = createGrid("player-grid");
@@ -63,6 +72,7 @@ async function mainApp(): Promise<void> {
 // lookup -> calculate grabOffset -> create active session -> capture -> dim origin ship
 playerGrid.addEventListener("pointerdown", (event) => {
   if (!event.isPrimary) return;
+  if (event.button != 0) return;
 
   //get actual grid coordinate
   const [col, row] = getCellCoordinate(playerGrid, event);
@@ -174,6 +184,43 @@ playerGrid.addEventListener("pointercancel", (event) => {
   activeSession = null;
 });
 
+randomLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  path = "";
+  switchActiveLink(randomLink, friendLink);
+  haveFriend.setAttribute("hidden", "");
+  window.history.replaceState(null, "", "/");
+});
+
+friendLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  handleFriendLink();
+});
+
+function handleFriendLink() {
+  switchActiveLink(friendLink, randomLink);
+  haveFriend?.removeAttribute("hidden");
+  //random number -> attach to path param -> renew the url-link with same number
+
+  let randPath: string;
+  if (window.location.pathname == "/") {
+    randPath = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } else {
+    randPath = window.location.pathname.split("/")[1];
+  }
+  urlLink.textContent = `${window.location.origin}/${randPath}`;
+  window.history.pushState({ path: randPath }, "", randPath);
+  path = randPath;
+}
+
+function switchActiveLink(target: HTMLElement, other: HTMLElement) {
+  target.classList.add("disabled");
+  target.setAttribute("aria-disabled", "true");
+
+  other.classList.remove("disabled");
+  other.removeAttribute("aria-disabled");
+}
+
 matchButton!.addEventListener("click", () => handleMatchButton());
 
 // TODO: before enterMatchmaking, should validate the ship first, client validation -> server validation/send -> render
@@ -183,20 +230,23 @@ export async function handleMatchButton() {
     return;
   }
   try {
+    jwt_token = await getGuestJWT();
     matchButton.disabled = true;
+    playerGrid.classList.add("disabled");
 
-    // unfortunately bcs dev having some skill issue, we can using defaultShips temporarily
-    shipPlacementClientValidation(playerOccupancy, defaultShips, shipsIndex);
-    await shipPlacementServerValidation(defaultShips, jwt_token);
-    shipsIndex = renderShipPlacement(playerOccupancy, defaultShips, shipsIndex);
+    shipPlacementClientValidation(playerOccupancy, ships, shipsIndex);
+    await shipPlacementServerValidation(ships, jwt_token);
+    shipsIndex = renderShipPlacement(playerOccupancy, ships, shipsIndex);
 
-    await enterMatchmaking(jwt_token);
+    await enterMatchmaking(jwt_token, path);
     gameState.textContent = "Matchmaking....";
     const ws_token = await poolMatchmaking(jwt_token);
     await upgradeWebsocket(ws_token);
+    gameState.textContent = "Matched, waiting for opponent....";
     await attachWebSocketHandlers(HandleMessage);
   } catch (error) {
     matchButton.disabled = false;
+    playerGrid.classList.remove("disabled");
     gameState.textContent = "Prepare your Ships";
     console.error(error);
     throw error;
@@ -211,7 +261,7 @@ leaveLink?.addEventListener("click", () => handleLeaveLink());
 
 function handleLeaveLink() {
   if (matchState != "INBATTLE") return;
-  if (confirm("are you sure little human??")) {
+  if (confirm("are you sure to surrender??")) {
     send("CMD_SURRENDER");
   }
 }
@@ -250,7 +300,7 @@ function HandleMessage(msg: WireMessage) {
       });
       matchState = "INBATTLE";
       updateTurnState(msg.data.turn);
-      gameState.textContent = `The Wheel of Fate is Turning!, ${isMyTurn}`;
+      gameState.textContent = `The Wheel of Fate is Turning!, ${isMyTurn ? "Your " : "Opponent "}Turn`;
       leaveLink?.removeAttribute("hidden");
       return;
     case "EVENT_FIRE_RESULT":
@@ -282,18 +332,15 @@ function updateTurnState(turnID: string) {
   if (playerID == turnID) {
     // isMyTurn = "Your turn";
     isMyTurn = true;
-    playerGrid.classList.add("disabled");
     opponentGrid.classList.remove("disabled");
   } else {
     // isMyTurn = "Opponent turn";
     isMyTurn = false;
-    playerGrid.classList.remove("disabled");
     opponentGrid.classList.add("disabled");
   }
 }
 
 function handleGameOver(data: any) {
-  matchState = "FINISHED";
   let msg: string;
   switch (data.reason) {
     case "ALL_ENEMY_SHIP_DESTROYED":
@@ -307,14 +354,18 @@ function handleGameOver(data: any) {
       break;
     case "OPPONENT_DISCONNECTED_TIMEOUT":
       msg =
-        data.winner_id == playerID
-          ? "you win !, the enemy flees"
-          : "the enemy flees, but you lose, lmao";
+        matchState == "PREPARATION"
+          ? "the enemy flees, try again?"
+          : "draw, the enemy flees";
+      // data.winner_id == playerID
+      //   ? "you win !, the enemy flees"
+      //   : "the enemy flees, but you lose, lmao";
       break;
     default:
       msg = "something strange happened, watchout !";
       break;
   }
+  matchState = "FINISHED";
   alert(msg);
   close();
   window.location.reload();

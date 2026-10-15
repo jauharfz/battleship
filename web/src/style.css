@@ -12,6 +12,8 @@ body{
 	justify-content: space-between;
 	font-family: sans-serif;
 	min-height: 100vh;
+	min-width: 1000px;  /* or 1100px */
+	overflow-x: auto;
 }
 
 .navbar{
@@ -35,6 +37,7 @@ body{
 	align-items: center;
 	padding: 1rem 2rem;
 	gap: 3rem;
+	min-width:1000px; /* or 1100px */
 }
 
 
@@ -46,6 +49,7 @@ body{
 	padding: 1rem 2rem;
 	display: grid;
 	text-align: center;
+	flex-shrink: 0;
 }
 
 #player-side{
@@ -81,12 +85,52 @@ body{
 	inset: 0;
 	z-index: 10;
 	display: flex;
-	justify-content: center;
+	flex-direction: column;
+	/* justify-content: center; */
+	grid-template-columns: 1fr 1fr auto;
 	align-items: center;
 	background-color: rgba(245, 245, 245, 0.85);
+	font-size: 0.75rem;
 }
 
 #prematch-overlay[hidden] {
+	display: none;
+}
+
+#play-with{
+	padding: 4rem 2rem 0rem;
+	font-size: 1.5rem;
+}
+
+#match-options{
+	display: flex;
+	gap: 35px;
+	padding: 0.5rem 0rem 0.5rem;
+}
+
+.link.disabled{
+	pointer-events: none;
+	cursor: default;
+	text-decoration: none;
+	color: black;
+}
+
+#have-friend{
+	padding: 0.25rem;
+}
+
+#url-desc{
+	font-size: 0.66rem;
+}
+
+#url-link{
+	margin-top: 0.25rem;
+	background-color: white;
+	border: solid 1px black;
+	padding: 0rem 0.5rem;
+}
+
+#have-friend[hidden]{
 	display: none;
 }
 
@@ -94,6 +138,7 @@ body{
 
 /* CSS button by tailwind*/
 #match-button{
+	margin: 1rem;
   background-color: #FFFFFF;
   border: 0;
   border-radius: .1rem;

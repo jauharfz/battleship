@@ -1,11 +1,16 @@
-export async function enterMatchmaking(token: string): Promise<void> {
+export async function enterMatchmaking(
+  token: string,
+  roomID: string,
+): Promise<void> {
   try {
+    console.log(roomID);
     const res = await fetch("/api/v1/matchmaking", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify(roomID ?? ""),
     });
     if (!res.ok) {
       console.error();
@@ -42,6 +47,9 @@ export async function poolMatchmaking(token: string): Promise<string> {
       const payload = await res.json();
       if (payload.status == "error") {
         throw new Error(payload.error);
+      }
+      if (payload.status == "timedout") {
+        throw new Error(payload.status);
       }
       if (payload.status == "matched") {
         return payload.data.ws_token;
