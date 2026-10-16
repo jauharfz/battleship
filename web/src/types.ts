@@ -34,7 +34,7 @@ export type DragSession = {
   isPlacementValid: boolean;
 };
 
-export type FireData = {
-  x: number;
-  y: number;
+export type PreviewSession = {
+  col: number;
+  row: number;
 };

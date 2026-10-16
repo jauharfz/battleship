@@ -82,3 +82,6 @@ export const defaultShips: Ship[] = [
     direction: "Vertical",
   },
 ];
+
+export const GUEST_TOKEN_KEY = "guest_jwt";
+export const SHIPS_LAYOUT_KEY = "ships";

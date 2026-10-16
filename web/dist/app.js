@@ -1,9 +1,9 @@
 import { getGuestJWT } from "./auth.js";
 import { enterMatchmaking, poolMatchmaking } from "./matchmaking.js";
 import { attachWebSocketHandlers, close, send, upgradeWebsocket, } from "./websocket.js";
-import { createGrid, getCellCoordinate, handleOpponentGrid } from "./grid.js";
+import { clearPreviewOpponentGrid, createGrid, getCellCoordinate, handleOpponentGrid, renderPreviewOpponentGrid, } from "./grid.js";
 import { renderShipPlacement, shipPlacementClientValidation, shipPlacementServerValidation, validatePlacement, renderPreview, clearPreview, clearState, } from "./ship.js";
-import { defaultShips } from "./constants.js";
+import { defaultShips, SHIPS_LAYOUT_KEY } from "./constants.js";
 let path;
 let jwt_token;
 let matchState = "PREPARATION";
@@ -13,9 +13,11 @@ let opponentOccupancy;
 let shipsIndex = [];
 let ships;
 let activeSession = null;
+let previewSession;
 const playerGrid = document.getElementById("player-grid");
 const opponentGrid = document.getElementById("opponent-grid");
 const gameState = document.getElementById("game-state");
+const matchOptions = document.getElementById("match-options");
 const randomLink = document.getElementById("random-link");
 const friendLink = document.getElementById("friend-link");
 const haveFriend = document.getElementById("have-friend");
@@ -35,7 +37,8 @@ async function mainApp() {
         jwt_token = await getGuestJWT();
         playerOccupancy = createGrid("player-grid");
         opponentOccupancy = createGrid("opponent-grid");
-        ships = defaultShips;
+        const savedShips = sessionStorage.getItem(SHIPS_LAYOUT_KEY);
+        ships = savedShips ? JSON.parse(savedShips) : structuredClone(defaultShips);
         shipsIndex = renderShipPlacement(playerOccupancy, ships, shipsIndex);
     }
     catch (error) {
@@ -111,6 +114,7 @@ playerGrid.addEventListener("pointerup", (event) => {
     shipsIndex = renderShipPlacement(playerOccupancy, ships, shipsIndex);
     playerGrid.releasePointerCapture(event.pointerId);
     activeSession = null;
+    sessionStorage.setItem(SHIPS_LAYOUT_KEY, JSON.stringify(ships));
 });
 playerGrid.addEventListener("lostpointercapture", (event) => {
     playerGrid.releasePointerCapture(event.pointerId);
@@ -119,6 +123,18 @@ playerGrid.addEventListener("lostpointercapture", (event) => {
 playerGrid.addEventListener("pointercancel", (event) => {
     playerGrid.releasePointerCapture(event.pointerId);
     activeSession = null;
+});
+opponentGrid.addEventListener("pointerover", (event) => {
+    if (previewSession) {
+        clearPreviewOpponentGrid(previewSession.col, previewSession.row, opponentOccupancy);
+    }
+    const [col, row] = renderPreviewOpponentGrid(opponentGrid, opponentOccupancy, event);
+    previewSession = { col, row };
+});
+opponentGrid.addEventListener("pointerleave", () => {
+    if (previewSession) {
+        clearPreviewOpponentGrid(previewSession.col, previewSession.row, opponentOccupancy);
+    }
 });
 randomLink.addEventListener("click", (event) => {
     event.preventDefault();
@@ -162,6 +178,8 @@ export async function handleMatchButton() {
     try {
         jwt_token = await getGuestJWT();
         matchButton.disabled = true;
+        matchOptions.classList.add("disabled");
+        leaveLink?.removeAttribute("hidden");
         playerGrid.classList.add("disabled");
         shipPlacementClientValidation(playerOccupancy, ships, shipsIndex);
         await shipPlacementServerValidation(ships, jwt_token);
@@ -175,6 +193,7 @@ export async function handleMatchButton() {
     }
     catch (error) {
         matchButton.disabled = false;
+        matchOptions.classList.remove("disabled");
         playerGrid.classList.remove("disabled");
         gameState.textContent = "Prepare your Ships";
         console.error(error);
@@ -184,10 +203,13 @@ export async function handleMatchButton() {
 opponentGrid?.addEventListener("click", (event) => handleOpponentGrid(event, isMyTurn, matchState));
 leaveLink?.addEventListener("click", () => handleLeaveLink());
 function handleLeaveLink() {
-    if (matchState != "INBATTLE")
-        return;
-    if (confirm("are you sure to surrender??")) {
-        send("CMD_SURRENDER");
+    if (matchState == "PREPARATION") {
+        window.location.reload();
+    }
+    if (matchState == "INBATTLE") {
+        if (confirm("are you sure to surrender??")) {
+            send("CMD_SURRENDER");
+        }
     }
 }
 //TODO: add try-catch, and handle event_error
@@ -196,11 +218,11 @@ function HandleMessage(msg) {
         case "EVENT_ROOM_CREATED":
             playerID = msg.data.player_id;
             console.log("Room Created");
-            send("CMD_PLACE_SHIPS", defaultShips);
+            send("CMD_PLACE_SHIPS", ships);
             return;
         case "EVENT_PLACE_SHIPMENT_RESULT":
             if (msg.data.is_valid) {
-                shipsIndex = renderShipPlacement(playerOccupancy, defaultShips, shipsIndex);
+                shipsIndex = renderShipPlacement(playerOccupancy, ships, shipsIndex);
             }
             console.log(msg.data.is_valid
                 ? "Ships Succesfully Placed"
@@ -217,7 +239,6 @@ function HandleMessage(msg) {
             matchState = "INBATTLE";
             updateTurnState(msg.data.turn);
             gameState.textContent = `The Wheel of Fate is Turning!, ${isMyTurn ? "Your " : "Opponent "}Turn`;
-            leaveLink?.removeAttribute("hidden");
             return;
         case "EVENT_FIRE_RESULT":
             // TODO: shloud display/render to player
@@ -270,9 +291,6 @@ function handleGameOver(data) {
                 matchState == "PREPARATION"
                     ? "the enemy flees, try again?"
                     : "draw, the enemy flees";
-            // data.winner_id == playerID
-            //   ? "you win !, the enemy flees"
-            //   : "the enemy flees, but you lose, lmao";
             break;
         default:
             msg = "something strange happened, watchout !";

@@ -1,4 +1,4 @@
-const GUEST_TOKEN_KEY = "guest_jwt";
+import { GUEST_TOKEN_KEY } from "./constants";
 export async function getGuestJWT() {
     const cachedToken = sessionStorage.getItem(GUEST_TOKEN_KEY);
     if (cachedToken && !isTokenExpired(cachedToken)) {
@@ -30,7 +30,7 @@ export function isTokenExpired(token) {
         const payload = JSON.parse(atob(payloadB64));
         if (!payload.exp)
             return true;
-        return Date.now() >= payload.exp * 1000 - 10000;
+        return Date.now() >= payload.exp * 1000 - 8000;
     }
     catch {
         return true;

@@ -37,15 +37,37 @@ export async function handleOpponentGrid(
 }
 
 export function getCellCoordinate(
-  playerGrid: HTMLElement,
+  grid: HTMLElement,
   event: PointerEvent,
 ): [number, number] {
-  const style = getComputedStyle(playerGrid);
-  const rect = playerGrid.getBoundingClientRect();
+  const style = getComputedStyle(grid);
+  const rect = grid.getBoundingClientRect();
   const borderLeft = parseFloat(style.borderLeft);
   const contentWidth = rect.width - borderLeft - parseFloat(style.borderRight);
   const pitch = (contentWidth + parseFloat(style.gap)) / 10;
   const col = (event.clientX - rect.left - borderLeft) / pitch;
   const row = (event.clientY - rect.top - parseFloat(style.borderTop)) / pitch;
   return [Math.floor(col), Math.floor(row)];
+}
+
+export function renderPreviewOpponentGrid(
+  opponentGrid: HTMLElement,
+  cells: HTMLElement[][],
+  event: PointerEvent,
+): [number, number] {
+  const [col, row] = getCellCoordinate(opponentGrid, event);
+  if (cells[row][col]) {
+    cells[row][col].dataset.preview = "valid";
+  }
+  return [col, row];
+}
+
+export function clearPreviewOpponentGrid(
+  col: number,
+  row: number,
+  cells: HTMLElement[][],
+) {
+  if (cells[row][col]) {
+    delete cells[row][col].dataset.preview;
+  }
 }

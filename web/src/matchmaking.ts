@@ -54,7 +54,7 @@ export async function poolMatchmaking(token: string): Promise<string> {
       if (payload.status == "matched") {
         return payload.data.ws_token;
       }
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 2000));
     }
   } catch (error) {
     console.error("failed to pool matchmaking ", error);

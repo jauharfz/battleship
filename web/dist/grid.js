@@ -33,13 +33,25 @@ export async function handleOpponentGrid(event, isMyTurn, state) {
     }
     send("CMD_FIRE", { x: Number(cell.dataset.x), y: Number(cell.dataset.y) });
 }
-export function getCellCoordinate(playerGrid, event) {
-    const style = getComputedStyle(playerGrid);
-    const rect = playerGrid.getBoundingClientRect();
+export function getCellCoordinate(grid, event) {
+    const style = getComputedStyle(grid);
+    const rect = grid.getBoundingClientRect();
     const borderLeft = parseFloat(style.borderLeft);
     const contentWidth = rect.width - borderLeft - parseFloat(style.borderRight);
     const pitch = (contentWidth + parseFloat(style.gap)) / 10;
     const col = (event.clientX - rect.left - borderLeft) / pitch;
     const row = (event.clientY - rect.top - parseFloat(style.borderTop)) / pitch;
     return [Math.floor(col), Math.floor(row)];
+}
+export function renderPreviewOpponentGrid(opponentGrid, cells, event) {
+    const [col, row] = getCellCoordinate(opponentGrid, event);
+    if (cells[row][col]) {
+        cells[row][col].dataset.preview = "valid";
+    }
+    return [col, row];
+}
+export function clearPreviewOpponentGrid(col, row, cells) {
+    if (cells[row][col]) {
+        delete cells[row][col].dataset.preview;
+    }
 }
