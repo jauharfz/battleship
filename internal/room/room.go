@@ -59,13 +59,12 @@ func (r *Room) Run() error {
 				joinTimer.Stop()
 				joinTimeoutCh = nil
 
-				var clientIDList [2]string
-				idx := 0
-				for client := range r.Clients {
-					clientIDList[idx] = client.ID
-					idx++
+				opponent, err := r.getOpponent(client)
+				if err != nil {
+					r.disconnectedTimeoutHandler(client, protocol.Aborted)
+					return err
 				}
-				r.Match = *game.NewMatch(clientIDList[0], clientIDList[1])
+				r.Match = *game.NewMatch(client.ID, opponent.ID)
 				// temp for debugging purpose
 				for client := range r.Clients {
 					// data, _ := json.Marshal("ROOM CREATED SUCCESFULLY")

@@ -29,7 +29,7 @@ func main() {
 
 	ticketStore := auth.NewTicketStore(6*time.Second, 4*time.Second)
 	matchmaker := lobby.NewMatchmaker(ticketStore, 4*time.Second)
-	jwtManager := auth.NewJWTManager(secret, 3000*time.Second)
+	jwtManager := auth.NewJWTManager(secret, 2000*time.Second)
 	handler := server.NewServer(jwtManager, ticketStore, matchmaker)
 	srv := http.Server{
 		Addr:    addr,

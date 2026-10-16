@@ -83,12 +83,12 @@ func (m *Match) PlaceShips(playerID string, shipPlacements []ShipPlacement) erro
 		return err
 	}
 	if m.Players[0].IsReady && m.Players[1].IsReady {
-		// whoever is ready first
-		if idx == 0 {
-			m.Turn = 1
-		} else {
-			m.Turn = 0
-		}
+		// // whoever is ready first
+		// if idx == 0 {
+		// 	m.Turn = 1
+		// } else {
+		// 	m.Turn = 0
+		// }
 		m.State = StateInBattle
 	}
 
