@@ -1,48 +1,123 @@
 ## Matchmaking w/ REST
-### 1. Matchmaking (Queue)
+### 1. Register Guest (Auth)
 
-The player requests to be put in the matchmaking queue.
+A player registers as a temporary guest to acquire a JWT token.
+
+    Request: POST /api/v1/auth/guest
+
+    Response: 201 Created
+    JSON Payload:
+
+    {
+      "status": "token created succesfully",
+      "data": {
+        "token": "<guest_jwt_token>"
+      }
+    }
+
+### 2. Validate Ship Placements (Pre-match Validation)
+
+The client optionally validates their fleet placement on the server before queuing.
+
+    Request: QUERY /api/v1/validate
+
+    Headers: Authorization: Bearer <user_token>
+
+    JSON Payload (Array of ships):
+
+    [
+      {
+        "name": "IJN_Taihou",
+        "type": "aircraft_carrier",
+        "x": 5,
+        "y": 9,
+        "direction": "Horizontal"
+      },
+      {
+        "name": "HMS_Belfast",
+        "type": "light_cruiser",
+        "x": 0,
+        "y": 0,
+        "direction": "Vertical"
+      }
+    ]
+
+    Response (Valid): 200 OK
+    JSON Payload:
+
+    {
+      "status": "ship validated"
+    }
+
+    Response (Invalid): 400 Bad Request
+    JSON Payload:
+
+    {
+      "status": "error",
+      "error": "invalid ship position"
+    }
+
+### 3. Matchmaking (Queue)
+
+The player requests to enter the matchmaking queue. For random matchmaking, the body is empty string `""`. For custom room matching with a friend, the body contains the room ID string.
 
     Request: POST /api/v1/matchmaking
 
     Headers: Authorization: Bearer <user_token>
 
-    Response: 202 Accepted
+    JSON Payload:
+
+    ""
+
+    or for custom room:
+
+    "ROOM123"
+
+    Response: 201 Created
     JSON Payload:
 
     {
       "status": "queued",
-      "message": "Searching for an opponent..."
+      "data": {
+        "message": "Searching for an opponent"
+      }
     }
 
-### 2. Check Matchmaking Status (Polling / SSE)
+### 4. Check Matchmaking Status (Polling)
 
-The client checks periodically whether the opponent has been found.
+The client checks periodically whether an opponent has been found.
 
     Request: GET /api/v1/matchmaking/status
 
-    Response (if not found): 200 OK
+    Headers: Authorization: Bearer <user_token>
+
+    Response (Searching): 200 OK
     JSON Payload:
 
     {
-      "status": "searching",
-      "room_id": null,
-      "ws_token": null
+      "status": "searching"
     }
 
-    Response (if found an opponent): 200 OK
+    Response (Matched): 200 OK
     JSON Payload:
 
     {
       "status": "matched",
-      "room_id": "67",
-      "ws_url": "ws://gameserver:8080/room/67",
-      "ws_token": "token_p1_abc123" 
+      "data": {
+        "ws_token": "token_uuid_123"
+      }
+    }
+
+    Response (Timed Out): 200 OK
+    JSON Payload:
+
+    {
+      "status": "timedout"
     }
 
 ## Battle-Phase w/ WebSocket Protocol
 
-Once the WebSocket connection is established using the `ws_url` and `ws_token` from the matchmaking status, communication is handled via Query Parameter at Handshake using One-Time Token.
+Once matched, the client upgrades to WebSocket at `/ws?ticket=<ws_token>`. The server validates and consumes the one-time ticket atomically during the HTTP 101 Switching Protocols upgrade.
 
 > **Note on Message Envelope**: All WebSocket messages (Client-to-Server and Server-to-Client) follow the standard envelope format:
 > ```json
@@ -52,15 +127,33 @@ Once the WebSocket connection is established using the `ws_url` and `ws_token` f
 > }
 > ```
 
-### 1. Place Ships & Ready State (Setup Phase)
+### 1. Room Created
 
-*Note: server-side must validate accepted ship type and max ship for each player*
+When both players connect to the room, the server notifies each player of their assigned player ID.
 
-*Accepted Ship Type: `{"heavy_cruiser", 3}`, `{"aircraft_carrier", 5}`, `{"light_cruiser", 3}`, `{"destroyer", 2}`, `{"battleship", 4}`*
+    Direction: Server to Client (S2C)
+    Type: EVENT_ROOM_CREATED
 
-*Max Placement: 5*
+    JSON Payload:
 
-*Grid Boundaries: using 10x10 grid w/ 0-indexed*
+    {
+      "type": "EVENT_ROOM_CREATED",
+      "data": {
+        "player_id": "player_uuid_abc"
+      }
+    }
+
+### 2. Place Ships & Ready State (Setup Phase)
+
+*Note: Server-side validates accepted ship type and count.*
+
+*Accepted Ship Types: `aircraft_carrier` (5), `battleship` (4), `heavy_cruiser` (3), `light_cruiser` (3), `destroyer` (2)*
+
+*Fleet Count: Exactly 5 ships*
+
+*Grid Boundaries: 10x10 grid (0-indexed, x: 0..9, y: 0..9)*
+
+*Direction values: `"Horizontal"`, `"Vertical"`*
 
 The player submits their ship placements to the game server.
 
@@ -71,24 +164,43 @@ The player submits their ship placements to the game server.
 
     {
       "type": "CMD_PLACE_SHIPS",
-      "data": {
-        "ships": [
-          {
-            "name": "IJN_Taihou",
-            "type": "aircraft_carrier",
-            "x": 1,
-            "y": 3,
-            "direction": 0
-          },
-          { 
-            "name": "KMS_Prinz_Eugen",
-            "type": "heavy_cruiser",
-            "x": 3,
-            "y": 1,
-            "direction": 1
-          }
-        ]
-      }
+      "data": [
+        {
+          "name": "IJN_Taihou",
+          "type": "aircraft_carrier",
+          "x": 5,
+          "y": 9,
+          "direction": "Horizontal"
+        },
+        {
+          "name": "HMS_Belfast",
+          "type": "light_cruiser",
+          "x": 0,
+          "y": 0,
+          "direction": "Vertical"
+        },
+        {
+          "name": "KMS_Bismarck",
+          "type": "battleship",
+          "x": 6,
+          "y": 0,
+          "direction": "Horizontal"
+        },
+        {
+          "name": "KMS_Prinz_Eugen",
+          "type": "heavy_cruiser",
+          "x": 0,
+          "y": 7,
+          "direction": "Vertical"
+        },
+        {
+          "name": "USS_Laffey",
+          "type": "destroyer",
+          "x": 5,
+          "y": 5,
+          "direction": "Horizontal"
+        }
+      ]
     }
 
 The server responds to the sender indicating whether the placement is valid.
@@ -106,7 +218,7 @@ The server responds to the sender indicating whether the placement is valid.
       }
     }
 
-The server notifies players (broadcast to both) when a player's ready state changes (e.g. after placing ships or canceling ready).
+The server notifies players (broadcast to both) when a player's ready state changes (after placing ships or canceling ready).
 
     Direction: Server to Client (S2C)
     Type: EVENT_PLAYER_READY
@@ -116,7 +228,7 @@ The server notifies players (broadcast to both) when a player's ready state chan
     {
       "type": "EVENT_PLAYER_READY",
       "data": {
-        "player_id": "666",
+        "player_id": "player_uuid_abc",
         "is_player_ready": true
       }
     }
@@ -133,9 +245,9 @@ A player can cancel their ready status during the setup phase:
       "data": {}
     }
 
-### 2. Battle Start
+### 3. Battle Start
 
-The server notifies both players that the setup phase is complete (both players ready), the battle has started, and indicates who takes the first turn.
+The server notifies both players that the setup phase is complete (both players ready), the battle has started, and indicates who takes the turn.
 
     Direction: Server to Client (S2C)
     Type: EVENT_BATTLE_START
@@ -145,11 +257,11 @@ The server notifies both players that the setup phase is complete (both players 
     {
       "type": "EVENT_BATTLE_START",
       "data": {
-        "first_turn": "666"
+        "turn": "player_uuid_abc"
       }
     }
 
-### 3. Fire (Combat Phase)
+### 4. Fire (Combat Phase)
 
 The active player fires at a coordinate on the opponent's grid.
 
@@ -168,7 +280,7 @@ The active player fires at a coordinate on the opponent's grid.
 
 The server broadcasts the result of the shot to both players.
 
-*ship_destroyed only returns the name of the ship if the ship was completely destroyed, otherwise empty/null*
+*`ship_destroyed` only returns the name of the ship if the ship was completely destroyed, otherwise omitted or empty.*
 
     Direction: Server to Client (S2C)
     Type: EVENT_FIRE_RESULT
@@ -178,13 +290,13 @@ The server broadcasts the result of the shot to both players.
     {
       "type": "EVENT_FIRE_RESULT",
       "data": {
-        "fired_by": "666",
-        "target": "777",
+        "fired_by": "player_uuid_abc",
+        "target": "player_uuid_xyz",
         "x": 4,
         "y": 5,
         "hit": true,
-        "ship_destroyed": "",
-        "next_turn": "666"
+        "ship_destroyed": "USS_Laffey",
+        "next_turn": "player_uuid_abc"
       }
     }
 
@@ -200,9 +312,9 @@ One of the active players surrenders in the middle of battle:
       "data": {}
     }
 
-### 4. Error Handling
+### 5. Error Handling
 
-The server sends an error event if the client performs an invalid move (e.g., shooting the same coordinates twice, not your turn).
+The server sends an error event if the client performs an invalid move or command.
 
     Direction: Server to Client (S2C)
     Type: EVENT_ERROR
@@ -211,62 +323,14 @@ The server sends an error event if the client performs an invalid move (e.g., sh
 
     {
       "type": "EVENT_ERROR",
-      "data": {
-        "code": "ALREADY_SHOT",
-        "message": "you've already shot the coordinates (4,5) before."
-      }
+      "data": "ALREADY_SHOT"
     }
-*Error Code List: "ALREADY_SHOT", "NOT_YOUR_TURN", "INVALID_PLACEMENT", "INVALID_PHASE", "UNKNOWN_ERROR"*
 
-### 5. Reconnection Sync
-
-*Note: This event can be implemented later to handle client reconnections.*
-
-The server sends the current state of the game to sync the client upon a successful reconnection.
-
-    Direction: Server to Client (S2C)
-    Type: EVENT_RECONNECT_SYNC
-
-    JSON Payload:
-
-    {
-      "type": "EVENT_RECONNECT_SYNC",
-      "data": {
-        "your_ships": [
-          {
-            "name": "KMS_Prinz_Eugen",
-            "type": "heavy_cruiser",
-            "x": 3,
-            "y": 1,
-            "direction": 1
-          }
-        ],
-        "your_shots_history": [
-          {
-            "x": 4,
-            "y": 5,
-            "hit": true
-          },
-          {
-            "x": 5,
-            "y": 4,
-            "hit": false
-          }
-        ],
-        "enemy_shots_history": [
-          {
-            "x": 6,
-            "y": 7,
-            "hit": false
-          }
-        ],
-        "next_turn": "777"
-      }
-    }
+*Error strings derived from internal game error states: `"ALREADY_SHOT"`, `"NOT_YOUR_TURN"`, `"INVALID_PLACEMENT"`, `"INVALID_PHASE"`, `"UNKNOWN_ERROR"`, `"Invalid Type Command"`.*
 
 ### 6. Game Over
 
-The server notifies both players that the game has ended.
+The server notifies players that the match has concluded.
 
     Direction: Server to Client (S2C)
     Type: EVENT_GAME_OVER
@@ -277,10 +341,10 @@ The server notifies both players that the game has ended.
       "type": "EVENT_GAME_OVER",
       "data": {
         "status": "finished",
-        "winner_id": "666",
+        "winner_id": "player_uuid_abc",
         "reason": "ALL_ENEMY_SHIP_DESTROYED"
       }
     }
 
-    * Possible values for "status": "finished", "aborted"
-    * Possible values for "reason": "ALL_ENEMY_SHIP_DESTROYED", "OPPONENT_DISCONNECTED_TIMEOUT", "OPPONENT_SURRENDERED"
+* Possible values for `status`: `"finished"`, `"aborted"`
+* Possible values for `reason`: `"ALL_ENEMY_SHIP_DESTROYED"`, `"OPPONENT_DISCONNECTED_TIMEOUT"`, `"OPPONENT_SURRENDERED"`
