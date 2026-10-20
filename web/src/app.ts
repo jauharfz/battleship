@@ -6,13 +6,7 @@ import {
   send,
   upgradeWebsocket,
 } from "./websocket.js";
-import {
-  clearPreviewOpponentGrid,
-  createGrid,
-  getCellCoordinate,
-  handleOpponentGrid,
-  renderPreviewOpponentGrid,
-} from "./grid.js";
+import { createGrid, getCellCoordinate, handleOpponentGrid } from "./grid.js";
 import {
   renderShipPlacement,
   shipPlacementClientValidation,
@@ -22,13 +16,7 @@ import {
   clearPreview,
   clearState,
 } from "./ship.js";
-import {
-  DragSession,
-  MatchState,
-  PreviewSession,
-  Ship,
-  WireMessage,
-} from "./types.js";
+import { DragSession, MatchState, Ship, WireMessage } from "./types.js";
 import { defaultShips, SHIPS_LAYOUT_KEY } from "./constants.js";
 
 let path: string;
@@ -40,7 +28,6 @@ let opponentOccupancy: HTMLElement[][];
 let shipsIndex: number[][] = [];
 let ships: Ship[];
 let activeSession: DragSession | null = null;
-let previewSession: PreviewSession;
 
 const playerGrid = document.getElementById("player-grid") as HTMLDivElement;
 const opponentGrid = document.getElementById("opponent-grid") as HTMLDivElement;
@@ -198,32 +185,6 @@ playerGrid.addEventListener("lostpointercapture", (event) => {
 playerGrid.addEventListener("pointercancel", (event) => {
   playerGrid.releasePointerCapture(event.pointerId);
   activeSession = null;
-});
-
-opponentGrid.addEventListener("pointerover", (event) => {
-  if (previewSession) {
-    clearPreviewOpponentGrid(
-      previewSession.col,
-      previewSession.row,
-      opponentOccupancy,
-    );
-  }
-  const [col, row] = renderPreviewOpponentGrid(
-    opponentGrid,
-    opponentOccupancy,
-    event,
-  );
-  previewSession = { col, row };
-});
-
-opponentGrid.addEventListener("pointerleave", () => {
-  if (previewSession) {
-    clearPreviewOpponentGrid(
-      previewSession.col,
-      previewSession.row,
-      opponentOccupancy,
-    );
-  }
 });
 
 randomLink.addEventListener("click", (event) => {

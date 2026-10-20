@@ -204,6 +204,12 @@ body{
 	opacity: 0.5;
 }
 
+#opponent-grid:not(.disabled) .cell:not([data-state]):hover{
+
+	border: 1px solid green;
+	cursor: crosshair;
+}
+
 
 .board-label{
 	padding: 1rem 2rem;

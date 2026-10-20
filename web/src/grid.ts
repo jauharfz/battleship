@@ -49,25 +49,3 @@ export function getCellCoordinate(
   const row = (event.clientY - rect.top - parseFloat(style.borderTop)) / pitch;
   return [Math.floor(col), Math.floor(row)];
 }
-
-export function renderPreviewOpponentGrid(
-  opponentGrid: HTMLElement,
-  cells: HTMLElement[][],
-  event: PointerEvent,
-): [number, number] {
-  const [col, row] = getCellCoordinate(opponentGrid, event);
-  if (cells[row][col]) {
-    cells[row][col].dataset.preview = "valid";
-  }
-  return [col, row];
-}
-
-export function clearPreviewOpponentGrid(
-  col: number,
-  row: number,
-  cells: HTMLElement[][],
-) {
-  if (cells[row][col]) {
-    delete cells[row][col].dataset.preview;
-  }
-}
