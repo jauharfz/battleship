@@ -25,6 +25,11 @@ body{
 	align-items: center;
 }
 
+#title{
+	cursor: pointer;
+}
+
+
 
 #leave-link{
 	/* background-color: transparent; */
@@ -218,7 +223,20 @@ body{
 
 .footer{	
 	padding: 1rem 2rem;
-	font-size: 50%;
+	font-size: 75%;
+	opacity: 50%;
+	display: flex;
+	gap: 1rem;
+
+}
+
+#status-link{
+	text-decoration: none;
+	color: black;
+}
+
+#status-link:hover{
+	color: grey;
 }
 
 .cell{
