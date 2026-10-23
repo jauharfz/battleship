@@ -29,6 +29,7 @@ let shipsIndex: number[][] = [];
 let ships: Ship[];
 let activeSession: DragSession | null = null;
 
+const title = document.getElementById("title") as HTMLElement;
 const playerGrid = document.getElementById("player-grid") as HTMLDivElement;
 const opponentGrid = document.getElementById("opponent-grid") as HTMLDivElement;
 
@@ -372,6 +373,10 @@ function handleGameOver(data: any) {
   close();
   window.location.reload();
 }
+
+title.addEventListener("click", () => {
+  window.location.reload();
+});
 
 mainApp();
 //save the client id -> if == unlock, otherwise lock
