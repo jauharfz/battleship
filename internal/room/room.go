@@ -38,9 +38,9 @@ func NewRoom(roomID string, rm *RoomManager) *Room {
 
 func (r *Room) Run() error {
 	defer func() {
+		r.rm.UnregisterClient(r.ID)
 		for client := range r.Clients {
 			delete(r.Clients, client)
-			delete(r.rm.Rooms, r.ID)
 			close(client.Send)
 		}
 	}()
@@ -212,7 +212,8 @@ func (r *Room) sendError(client *Client, err error) error {
 	select {
 	case client.Send <- data:
 	default:
-		r.Unregister <- client
+		// this can cause deadlock, u know
+		// r.Unregister <- client
 	}
 	return nil
 }
@@ -230,7 +231,7 @@ func (r *Room) sendEvent(client *Client, eventType protocol.Event, data any) err
 	select {
 	case client.Send <- data2:
 	default:
-		r.Unregister <- client
+		// r.Unregister <- client
 	}
 	return nil
 }

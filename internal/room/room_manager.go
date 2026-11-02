@@ -13,10 +13,9 @@ func NewRoomManager() *RoomManager {
 	}
 }
 
-// if !exist ->
+// TODO: unlock mu before sending to channel
 func (rm *RoomManager) RegisterClient(roomID string, client *Client) {
 	rm.mu.Lock()
-	defer rm.mu.Unlock()
 
 	room, exist := rm.Rooms[roomID]
 	if !exist {
@@ -24,5 +23,15 @@ func (rm *RoomManager) RegisterClient(roomID string, client *Client) {
 		rm.Rooms[roomID] = room
 		go room.Run()
 	}
+	rm.mu.Unlock()
 	room.Register <- client
+}
+
+// TODO: CREATE UnregisterClient
+// and fix possibility concurent bug at room when delete id
+func (rm *RoomManager) UnregisterClient(id string) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	delete(rm.Rooms, id)
 }

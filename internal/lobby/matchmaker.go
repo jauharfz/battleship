@@ -47,7 +47,7 @@ func NewQueuedPlayer(playerID string) *QueuedPlayer {
 	}
 }
 
-// from handler = queue <- playerID
+// TODO: if it's modified the struct, don't forget lock&unlock
 func (m *Matchmaker) Matching(wg *sync.WaitGroup, ctx context.Context) {
 	slog.Info("matchmaking started")
 	ticker := time.NewTicker(m.sweepInterval)
@@ -57,18 +57,21 @@ func (m *Matchmaker) Matching(wg *sync.WaitGroup, ctx context.Context) {
 			slog.Info("matchmaking shutdown gracefully")
 			return
 		case id := <-m.Pool:
+			m.mu.Lock()
 			if m.Waiting == nil {
 				m.Waiting = NewQueuedPlayer(id)
-				// m.CustomPlayers[id] = m.Waiting
+				m.mu.Unlock()
 				continue
 			}
 			if m.Waiting.PlayerID == id {
+				m.mu.Unlock()
 				continue
 			}
 			roomID := uuid.New().String()
 			m.ticketStore.Issue(m.Waiting.PlayerID, roomID)
 			m.ticketStore.Issue(id, roomID)
 			m.Waiting = nil
+			m.mu.Unlock()
 		case <-ticker.C:
 			m.mu.Lock()
 			// check for random waiter
@@ -109,9 +112,13 @@ func (m *Matchmaker) UpdateLastChecked(playerID string, isCustom bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if isCustom {
-		m.CustomPlayers[playerID].LastChecked = time.Now()
+		if p, ok := m.CustomPlayers[playerID]; ok && p != nil {
+			p.LastChecked = time.Now()
+		}
 	} else {
-		m.Waiting.LastChecked = time.Now()
+		if m.Waiting != nil && m.Waiting.PlayerID == playerID {
+			m.Waiting.LastChecked = time.Now()
+		}
 	}
 }
 
